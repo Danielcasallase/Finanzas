@@ -7,5 +7,5 @@ import react from "@vitejs/plugin-react";
 // (tuusuario.github.io sin subcarpeta), deja base: "/".
 export default defineConfig({
   plugins: [react()],
-  base: "/raiz/",
+  base: "/Finanzas/",
 });
