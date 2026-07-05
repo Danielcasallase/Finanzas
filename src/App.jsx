@@ -375,7 +375,7 @@ function FinanzasApp({ user, onSignOut }) {
 
       {/* Header */}
       <div className="px-5 pt-7 pb-4 flex items-center justify-between">
-        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 21, fontStyle: "italic", letterSpacing: 0.2 }}>Raíz</div>
+        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 21, fontStyle: "italic", letterSpacing: 0.2 }}>Ledger</div>
         <div className="flex items-center gap-3">
           <ConfirmIconButtonText
             onConfirm={async () => {

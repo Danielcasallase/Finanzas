@@ -76,7 +76,7 @@ export default function Auth() {
           boxShadow: "0 1px 2px rgba(0,0,0,0.4), 0 24px 48px -20px rgba(0,0,0,0.65)",
         }}
       >
-        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 30, fontStyle: "italic", letterSpacing: 0.2 }}>Raíz</div>
+        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 30, fontStyle: "italic", letterSpacing: 0.2 }}>Ledger</div>
         <p style={{ color: COLOR.textMuted, fontSize: 13.5, marginTop: 8, marginBottom: 24, lineHeight: 1.5 }}>
           Entra con tu correo. Te enviamos un enlace de acceso, sin contraseñas.
         </p>
