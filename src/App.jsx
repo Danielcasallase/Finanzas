@@ -13,7 +13,7 @@ import {
 
 // ---------- Design tokens ----------
 const COLOR = {
-  bg: "#0C0F14",
+  bg: "#0A0C10",
   surface: "#12161D",
   surfaceAlt: "#171C24",
   hairline: "#232A34",
@@ -136,7 +136,15 @@ const DONUT_COLORS = ["#8FBFA6", "#8C9BC7", "#C99089", "#B9A98C", "#7FA6A0", "#9
 // ---------- UI atoms ----------
 function Card({ children, style, className = "" }) {
   return (
-    <div className={`rounded-xl p-5 ${className}`} style={{ background: COLOR.surface, border: `1px solid ${COLOR.hairline}`, ...style }}>
+    <div
+      className={`rounded-2xl p-5 transition-transform duration-200 ${className}`}
+      style={{
+        background: COLOR.surface,
+        border: `1px solid ${COLOR.hairline}`,
+        boxShadow: "0 1px 2px rgba(0,0,0,0.35), 0 16px 32px -18px rgba(0,0,0,0.6)",
+        ...style,
+      }}
+    >
       {children}
     </div>
   );
@@ -146,11 +154,12 @@ function Pill({ active, onClick, icon: Icon, label }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2 pb-2.5 text-sm whitespace-nowrap transition-colors"
+      className="flex items-center gap-2 py-2 px-3.5 text-sm whitespace-nowrap rounded-full transition-all duration-150"
       style={{
-        color: active ? COLOR.textPrimary : COLOR.textMuted,
-        borderBottom: `1.5px solid ${active ? COLOR.textPrimary : "transparent"}`,
+        color: active ? COLOR.bg : COLOR.textMuted,
+        background: active ? COLOR.mint : "transparent",
         fontFamily: FONT_BODY,
+        fontWeight: active ? 600 : 500,
       }}
     >
       <Icon size={14} strokeWidth={1.75} />
@@ -344,8 +353,13 @@ function FinanzasApp({ user, onSignOut }) {
   }
 
   return (
-    <div style={{ background: COLOR.bg, minHeight: 480, fontFamily: FONT_BODY, color: COLOR.textPrimary }} className="w-full">
-      <style>{`
+<div
+      style={{
+        background: `radial-gradient(1200px 500px at 50% -10%, rgba(143,191,166,0.06), transparent 60%), ${COLOR.bg}`,
+        minHeight: 480, fontFamily: FONT_BODY, color: COLOR.textPrimary,
+      }}
+      className="w-full"
+    >      <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { height: 6px; width: 6px; }
@@ -378,14 +392,18 @@ function FinanzasApp({ user, onSignOut }) {
       </div>
 
       {/* Tabs */}
-      <div className="px-5 flex gap-6 overflow-x-auto" style={{ borderBottom: `1px solid ${COLOR.hairline}` }}>
-        <Pill active={tab === "dashboard"} onClick={() => setTab("dashboard")} icon={LayoutDashboard} label="Dashboard" />
-        <Pill active={tab === "movimientos"} onClick={() => setTab("movimientos")} icon={Receipt} label="Movimientos" />
-        <Pill active={tab === "cuentas"} onClick={() => setTab("cuentas")} icon={Wallet} label="Cuentas" />
-        <Pill active={tab === "metas"} onClick={() => setTab("metas")} icon={Target} label="Metas" />
-        <Pill active={tab === "reportes"} onClick={() => setTab("reportes")} icon={PieChartIcon} label="Reportes" />
+      <div className="px-5 pb-3">
+        <div
+          className="flex gap-1 overflow-x-auto p-1.5 rounded-2xl w-fit"
+          style={{ background: COLOR.surface, border: `1px solid ${COLOR.hairline}` }}
+        >
+          <Pill active={tab === "dashboard"} onClick={() => setTab("dashboard")} icon={LayoutDashboard} label="Dashboard" />
+          <Pill active={tab === "movimientos"} onClick={() => setTab("movimientos")} icon={Receipt} label="Movimientos" />
+          <Pill active={tab === "cuentas"} onClick={() => setTab("cuentas")} icon={Wallet} label="Cuentas" />
+          <Pill active={tab === "metas"} onClick={() => setTab("metas")} icon={Target} label="Metas" />
+          <Pill active={tab === "reportes"} onClick={() => setTab("reportes")} icon={PieChartIcon} label="Reportes" />
+        </div>
       </div>
-
       <div className="p-5 max-w-3xl mx-auto">
         {tab === "dashboard" && (
           <Dashboard cuentas={cuentas} totales={totales} serie={serie} catBreak={catBreak} deltaPct={deltaPct}

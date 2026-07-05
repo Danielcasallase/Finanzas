@@ -2,13 +2,14 @@ import { useState } from "react";
 import { supabase } from "./supabaseClient";
 
 const COLOR = {
-  bg: "#0C0F14",
+  bg: "#0A0C10",
   surface: "#12161D",
   surfaceAlt: "#171C24",
   hairline: "#232A34",
-  textPrimary: "#E9ECF1",
+  textPrimary: "#EDEFF3",
   textMuted: "#7C8698",
   mint: "#8FBFA6",
+  mintSoft: "rgba(143,191,166,0.14)",
   coral: "#C99089",
 };
 const FONT_DISPLAY = "'Fraunces', Georgia, serif";
@@ -38,24 +39,53 @@ export default function Auth() {
 
   return (
     <div
-      style={{ background: COLOR.bg, minHeight: "100vh", fontFamily: FONT_BODY, color: COLOR.textPrimary }}
-      className="w-full flex items-center justify-center px-5"
+      style={{
+        background: `radial-gradient(900px 500px at 50% -8%, rgba(143,191,166,0.10), transparent 60%), ${COLOR.bg}`,
+        minHeight: "100vh",
+        fontFamily: FONT_BODY,
+        color: COLOR.textPrimary,
+      }}
+      className="w-full flex items-center justify-center px-5 relative overflow-hidden"
     >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..600&family=Inter:wght@400;500;600;700&display=swap');
         * { box-sizing: border-box; }
+        .raiz-btn { transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease; }
+        .raiz-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 20px -8px rgba(143,191,166,0.5); }
+        .raiz-input { transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+        .raiz-input:focus { outline: none; border-color: ${COLOR.mint} !important; box-shadow: 0 0 0 3px ${COLOR.mintSoft}; }
       `}</style>
-      <div
-        className="w-full max-w-sm rounded-xl p-6"
-        style={{ background: COLOR.surface, border: `1px solid ${COLOR.hairline}` }}
+
+      {/* Motivo decorativo de raíces, muy sutil */}
+      <svg
+        aria-hidden="true"
+        width="420" height="420" viewBox="0 0 420 420"
+        style={{ position: "absolute", bottom: -60, left: "50%", transform: "translateX(-50%)", opacity: 0.05, pointerEvents: "none" }}
       >
-        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 26, fontStyle: "italic" }}>Raíz</div>
-        <p style={{ color: COLOR.textMuted, fontSize: 13.5, marginTop: 6, marginBottom: 20 }}>
+        <path
+          d="M210 40 V180 M210 180 C 150 210, 130 260, 90 320 M210 180 C 270 210, 290 260, 330 320 M210 180 C 180 220, 170 250, 150 300 M210 180 C 240 220, 250 250, 270 300"
+          stroke={COLOR.mint} strokeWidth="2" fill="none" strokeLinecap="round"
+        />
+      </svg>
+
+      <div
+        className="w-full max-w-sm rounded-2xl p-7 relative"
+        style={{
+          background: COLOR.surface,
+          border: `1px solid ${COLOR.hairline}`,
+          boxShadow: "0 1px 2px rgba(0,0,0,0.4), 0 24px 48px -20px rgba(0,0,0,0.65)",
+        }}
+      >
+        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 30, fontStyle: "italic", letterSpacing: 0.2 }}>Raíz</div>
+        <p style={{ color: COLOR.textMuted, fontSize: 13.5, marginTop: 8, marginBottom: 24, lineHeight: 1.5 }}>
           Entra con tu correo. Te enviamos un enlace de acceso, sin contraseñas.
         </p>
 
         {estado === "enviado" ? (
-          <div style={{ fontSize: 14, color: COLOR.mint }}>
+          <div
+            className="rounded-xl p-4 text-sm"
+            style={{ background: COLOR.mintSoft, color: COLOR.mint, border: "1px solid rgba(143,191,166,0.25)", lineHeight: 1.5 }}
+          >
             Listo. Revisa tu correo <strong>{email}</strong> y haz clic en el enlace para entrar.
           </div>
         ) : (
@@ -66,19 +96,24 @@ export default function Auth() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="tucorreo@ejemplo.com"
-              className="rounded-lg px-3 py-2.5 text-sm"
+              className="raiz-input rounded-xl px-3.5 py-3 text-sm"
               style={{ background: COLOR.surfaceAlt, border: `1px solid ${COLOR.hairline}`, color: COLOR.textPrimary }}
             />
             <button
               type="submit"
               disabled={estado === "enviando"}
-              className="rounded-lg px-3 py-2.5 text-sm font-medium"
+              className="raiz-btn rounded-xl px-3.5 py-3 text-sm font-medium"
               style={{ background: COLOR.mint, color: "#08130E", opacity: estado === "enviando" ? 0.7 : 1 }}
             >
               {estado === "enviando" ? "Enviando…" : "Enviar enlace de acceso"}
             </button>
             {estado === "error" && (
-              <div style={{ fontSize: 12.5, color: COLOR.coral }}>{errorMsg}</div>
+              <div
+                className="rounded-lg p-3 text-xs"
+                style={{ background: "rgba(201,144,137,0.12)", color: COLOR.coral, border: "1px solid rgba(201,144,137,0.25)" }}
+              >
+                {errorMsg}
+              </div>
             )}
           </form>
         )}
