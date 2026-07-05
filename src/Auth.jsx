@@ -2,15 +2,17 @@ import { useState } from "react";
 import { supabase } from "./supabaseClient";
 
 const COLOR = {
-  bg: "#0A0C10",
-  surface: "#12161D",
-  surfaceAlt: "#171C24",
-  hairline: "#232A34",
-  textPrimary: "#EDEFF3",
-  textMuted: "#7C8698",
-  mint: "#8FBFA6",
-  mintSoft: "rgba(143,191,166,0.14)",
-  coral: "#C99089",
+  bg: "#090C14",
+  surface: "#12162A",
+  surfaceAlt: "#171C33",
+  hairline: "#262B47",
+  textPrimary: "#EEF1FA",
+  textMuted: "#8791AD",
+  mint: "#3FBE8A",
+  mintSoft: "rgba(63,190,138,0.14)",
+  coral: "#E36F63",
+  peri: "#6C7CFF",
+  periSoft: "rgba(108,124,255,0.16)",
 };
 const FONT_DISPLAY = "'Fraunces', Georgia, serif";
 const FONT_BODY = "'Inter', ui-sans-serif, system-ui, sans-serif";
@@ -27,7 +29,7 @@ export default function Auth() {
     setErrorMsg("");
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: window.location.origin + window.location.pathname },
     });
     if (error) {
       setEstado("error");
@@ -40,7 +42,7 @@ export default function Auth() {
   return (
     <div
       style={{
-        background: `radial-gradient(900px 500px at 50% -8%, rgba(143,191,166,0.10), transparent 60%), ${COLOR.bg}`,
+        background: `radial-gradient(900px 500px at 50% -8%, rgba(108,124,255,0.12), transparent 60%), ${COLOR.bg}`,
         minHeight: "100vh",
         fontFamily: FONT_BODY,
         color: COLOR.textPrimary,
@@ -51,9 +53,9 @@ export default function Auth() {
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..600&family=Inter:wght@400;500;600;700&display=swap');
         * { box-sizing: border-box; }
         .raiz-btn { transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease; }
-        .raiz-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 20px -8px rgba(143,191,166,0.5); }
+        .raiz-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 20px -8px rgba(108,124,255,0.55); }
         .raiz-input { transition: border-color 0.15s ease, box-shadow 0.15s ease; }
-        .raiz-input:focus { outline: none; border-color: ${COLOR.mint} !important; box-shadow: 0 0 0 3px ${COLOR.mintSoft}; }
+        .raiz-input:focus { outline: none; border-color: ${COLOR.peri} !important; box-shadow: 0 0 0 3px ${COLOR.periSoft}; }
       `}</style>
 
       {/* Motivo decorativo de raíces, muy sutil */}
@@ -64,7 +66,7 @@ export default function Auth() {
       >
         <path
           d="M210 40 V180 M210 180 C 150 210, 130 260, 90 320 M210 180 C 270 210, 290 260, 330 320 M210 180 C 180 220, 170 250, 150 300 M210 180 C 240 220, 250 250, 270 300"
-          stroke={COLOR.mint} strokeWidth="2" fill="none" strokeLinecap="round"
+          stroke={COLOR.peri} strokeWidth="2" fill="none" strokeLinecap="round"
         />
       </svg>
 
@@ -103,7 +105,7 @@ export default function Auth() {
               type="submit"
               disabled={estado === "enviando"}
               className="raiz-btn rounded-xl px-3.5 py-3 text-sm font-medium"
-              style={{ background: COLOR.mint, color: "#08130E", opacity: estado === "enviando" ? 0.7 : 1 }}
+              style={{ background: COLOR.peri, color: COLOR.bg, opacity: estado === "enviando" ? 0.7 : 1 }}
             >
               {estado === "enviando" ? "Enviando…" : "Enviar enlace de acceso"}
             </button>
