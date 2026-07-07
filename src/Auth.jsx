@@ -1,22 +1,13 @@
 import { useState } from "react";
 import { supabase } from "./supabaseClient";
+import GlobalStyles from "./GlobalStyles";
+import { COLOR, FONT_DISPLAY, FONT_BODY, FONT_MONO, RADIUS, SHADOW, inputStyle } from "./theme";
+import { Sparkles, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
 
-const COLOR = {
-  bg: "#090C14",
-  surface: "#12162A",
-  surfaceAlt: "#171C33",
-  hairline: "#262B47",
-  textPrimary: "#EEF1FA",
-  textMuted: "#8791AD",
-  mint: "#3FBE8A",
-  mintSoft: "rgba(63,190,138,0.14)",
-  coral: "#E36F63",
-  peri: "#6C7CFF",
-  periSoft: "rgba(108,124,255,0.16)",
-};
-const FONT_DISPLAY = "'Fraunces', Georgia, serif";
-const FONT_BODY = "'Inter', ui-sans-serif, system-ui, sans-serif";
-
+// ---------- Auth ----------
+// Puerta de acceso sin contraseña: un solo campo de correo. El objetivo del
+// rediseño es que la primera impresión de la app ya transmita "producto
+// financiero premium" antes incluso de entrar al dashboard.
 export default function Auth() {
   const [email, setEmail] = useState("");
   const [estado, setEstado] = useState("idle"); // idle | enviando | enviado | error
@@ -42,27 +33,24 @@ export default function Auth() {
   return (
     <div
       style={{
-        background: `radial-gradient(900px 500px at 50% -8%, rgba(108,124,255,0.12), transparent 60%), ${COLOR.bg}`,
+        background: `
+          radial-gradient(900px 480px at 15% -10%, ${COLOR.meshPeri}, transparent 60%),
+          radial-gradient(700px 420px at 100% 10%, ${COLOR.meshMint}, transparent 55%),
+          ${COLOR.bg}
+        `,
         minHeight: "100vh",
         fontFamily: FONT_BODY,
         color: COLOR.textPrimary,
       }}
-      className="w-full flex items-center justify-center px-5 relative overflow-hidden"
+      className="w-full flex items-center justify-center px-5 py-10 relative overflow-hidden"
     >
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..600&family=Inter:wght@400;500;600;700&display=swap');
-        * { box-sizing: border-box; }
-        .raiz-btn { transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease; }
-        .raiz-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 20px -8px rgba(108,124,255,0.55); }
-        .raiz-input { transition: border-color 0.15s ease, box-shadow 0.15s ease; }
-        .raiz-input:focus { outline: none; border-color: ${COLOR.peri} !important; box-shadow: 0 0 0 3px ${COLOR.periSoft}; }
-      `}</style>
+      <GlobalStyles />
 
-      {/* Motivo decorativo de raíces, muy sutil */}
+      {/* Motivo decorativo de raíces — marca de agua sutil, coherente con el logotipo */}
       <svg
         aria-hidden="true"
-        width="420" height="420" viewBox="0 0 420 420"
-        style={{ position: "absolute", bottom: -60, left: "50%", transform: "translateX(-50%)", opacity: 0.05, pointerEvents: "none" }}
+        width="520" height="520" viewBox="0 0 420 420"
+        style={{ position: "absolute", bottom: -120, left: "50%", transform: "translateX(-50%)", opacity: 0.05, pointerEvents: "none" }}
       >
         <path
           d="M210 40 V180 M210 180 C 150 210, 130 260, 90 320 M210 180 C 270 210, 290 260, 330 320 M210 180 C 180 220, 170 250, 150 300 M210 180 C 240 220, 250 250, 270 300"
@@ -70,55 +58,96 @@ export default function Auth() {
         />
       </svg>
 
-      <div
-        className="w-full max-w-sm rounded-2xl p-7 relative"
-        style={{
-          background: COLOR.surface,
-          border: `1px solid ${COLOR.hairline}`,
-          boxShadow: "0 1px 2px rgba(0,0,0,0.4), 0 24px 48px -20px rgba(0,0,0,0.65)",
-        }}
-      >
-        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 30, fontStyle: "italic", letterSpacing: 0.2 }}>Ledger</div>
-        <p style={{ color: COLOR.textMuted, fontSize: 13.5, marginTop: 8, marginBottom: 24, lineHeight: 1.5 }}>
-          Entra con tu correo. Te enviamos un enlace de acceso, sin contraseñas.
-        </p>
-
-        {estado === "enviado" ? (
+      <div className="w-full flex flex-col items-center gap-6 animate-slide-up" style={{ maxWidth: 384 }}>
+        {/* Wordmark */}
+        <div className="flex items-center gap-2">
           <div
-            className="rounded-xl p-4 text-sm"
-            style={{ background: COLOR.mintSoft, color: COLOR.mint, border: "1px solid rgba(143,191,166,0.25)", lineHeight: 1.5 }}
+            className="flex items-center justify-center"
+            style={{ width: 30, height: 30, borderRadius: RADIUS.md, background: COLOR.periSoft, border: `1px solid ${COLOR.periBorder}` }}
           >
-            Listo. Revisa tu correo <strong>{email}</strong> y haz clic en el enlace para entrar.
+            <Sparkles size={14} strokeWidth={2} color={COLOR.peri} />
           </div>
-        ) : (
-          <form onSubmit={enviarEnlace} className="flex flex-col gap-3">
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="tucorreo@ejemplo.com"
-              className="raiz-input rounded-xl px-3.5 py-3 text-sm"
-              style={{ background: COLOR.surfaceAlt, border: `1px solid ${COLOR.hairline}`, color: COLOR.textPrimary }}
-            />
-            <button
-              type="submit"
-              disabled={estado === "enviando"}
-              className="raiz-btn rounded-xl px-3.5 py-3 text-sm font-medium"
-              style={{ background: COLOR.peri, color: COLOR.bg, opacity: estado === "enviando" ? 0.7 : 1 }}
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 20, fontStyle: "italic", letterSpacing: 0.2 }}>Ledger</div>
+        </div>
+
+        <div
+          className="w-full relative animate-scale-in"
+          style={{
+            background: COLOR.surface,
+            border: `1px solid ${COLOR.hairline}`,
+            borderRadius: RADIUS.xxl,
+            boxShadow: SHADOW.lg,
+            padding: "34px 30px",
+          }}
+        >
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 27, fontWeight: 500, letterSpacing: -0.2, lineHeight: 1.15 }}>
+            Tu panorama financiero, en un solo lugar
+          </div>
+          <p style={{ color: COLOR.textMuted, fontSize: 13.5, marginTop: 10, marginBottom: 26, lineHeight: 1.55 }}>
+            Entra con tu correo. Te enviamos un enlace de acceso — sin contraseñas que recordar.
+          </p>
+
+          {estado === "enviado" ? (
+            <div
+              className="flex items-start gap-2.5 animate-fade-in"
+              style={{ borderRadius: RADIUS.lg, padding: 16, background: COLOR.mintSoft, border: `1px solid ${COLOR.mintBorder}` }}
             >
-              {estado === "enviando" ? "Enviando…" : "Enviar enlace de acceso"}
-            </button>
-            {estado === "error" && (
-              <div
-                className="rounded-lg p-3 text-xs"
-                style={{ background: "rgba(201,144,137,0.12)", color: COLOR.coral, border: "1px solid rgba(201,144,137,0.25)" }}
-              >
-                {errorMsg}
+              <CheckCircle2 size={17} style={{ color: COLOR.mint, flexShrink: 0, marginTop: 1 }} />
+              <div style={{ fontSize: 13.5, color: COLOR.textPrimary, lineHeight: 1.55 }}>
+                Listo. Revisa <span style={{ fontFamily: FONT_MONO, color: COLOR.mint }}>{email}</span> y haz clic en el enlace para entrar.
               </div>
-            )}
-          </form>
-        )}
+            </div>
+          ) : (
+            <form onSubmit={enviarEnlace} className="flex flex-col gap-3">
+              <label className="flex flex-col gap-1.5">
+                <span style={{ fontSize: 11.5, color: COLOR.textMuted, letterSpacing: 0.4, textTransform: "uppercase" }}>Correo electrónico</span>
+                <input
+                  type="email"
+                  required
+                  autoFocus
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="tucorreo@ejemplo.com"
+                  className="rounded-xl px-4 py-3 text-sm"
+                  style={{ ...inputStyle, borderRadius: RADIUS.lg }}
+                />
+              </label>
+
+              <button
+                type="submit"
+                disabled={estado === "enviando"}
+                className="raiz-press flex items-center justify-center gap-1.5 text-sm font-medium mt-1"
+                style={{
+                  background: COLOR.peri,
+                  color: COLOR.onAccent,
+                  borderRadius: RADIUS.lg,
+                  padding: "13px 16px",
+                  opacity: estado === "enviando" ? 0.7 : 1,
+                  boxShadow: estado === "enviando" ? "none" : SHADOW.glowPeri,
+                  cursor: estado === "enviando" ? "default" : "pointer",
+                }}
+              >
+                {estado === "enviando" ? "Enviando…" : (
+                  <>Enviar enlace de acceso <ArrowRight size={15} /></>
+                )}
+              </button>
+
+              {estado === "error" && (
+                <div
+                  className="flex items-start gap-2 animate-fade-in"
+                  style={{ borderRadius: RADIUS.md, padding: 12, background: COLOR.coralSoft, border: `1px solid ${COLOR.coralBorder}` }}
+                >
+                  <AlertCircle size={15} style={{ color: COLOR.coral, flexShrink: 0, marginTop: 1 }} />
+                  <div style={{ fontSize: 12.5, color: COLOR.coral, lineHeight: 1.5 }}>{errorMsg}</div>
+                </div>
+              )}
+            </form>
+          )}
+        </div>
+
+        <p style={{ fontSize: 12, color: COLOR.textMuted, textAlign: "center", lineHeight: 1.6 }}>
+          Tus datos viven en tu propia cuenta, protegidos por Supabase.
+        </p>
       </div>
     </div>
   );

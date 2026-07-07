@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "./supabaseClient";
 import Auth from "./Auth";
+import GlobalStyles from "./GlobalStyles";
+import { COLOR, FONT_DISPLAY, FONT_BODY, FONT_MONO, RADIUS, SHADOW, TRANSITION, DONUT_COLORS, inputStyle } from "./theme";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -9,28 +11,12 @@ import {
   LayoutDashboard, Receipt, Wallet, PieChart as PieChartIcon, Target,
   Plus, TrendingUp, Trash2, CreditCard, Pencil, Search, AlertTriangle,
   Sparkles, ArrowDownRight, ArrowUpRight, Download, Check, X, Calendar,
+  LogOut, RotateCcw, ArrowRight, ShoppingCart, Bus, HeartPulse,
+  Home, GraduationCap, Laptop2, Zap, Clapperboard, RefreshCw, PawPrint,
+  Shirt, Plane, Landmark, MoreHorizontal,
 } from "lucide-react";
 
-// ---------- Design tokens ----------
-const COLOR = {
-  bg: "#0A0C10",
-  surface: "#12161D",
-  surfaceAlt: "#171C24",
-  hairline: "#232A34",
-  textPrimary: "#E9ECF1",
-  textMuted: "#7C8698",
-  mint: "#8FBFA6",
-  mintSoft: "rgba(143,191,166,0.10)",
-  coral: "#C99089",
-  coralSoft: "rgba(201,144,137,0.10)",
-  peri: "#8C9BC7",
-  periSoft: "rgba(140,155,199,0.10)",
-};
-
-const FONT_DISPLAY = "'Fraunces', Georgia, serif";
-const FONT_BODY = "'Inter', ui-sans-serif, system-ui, sans-serif";
-const FONT_MONO = "'JetBrains Mono', ui-monospace, 'SF Mono', monospace";
-
+// ---------- Constantes de dominio ----------
 const CATEGORIAS = [
   "Alimentación", "Transporte", "Salud", "Vivienda", "Educación", "Tecnología",
   "Servicios", "Entretenimiento", "Suscripciones", "Mascotas", "Ropa", "Viajes",
@@ -45,6 +31,29 @@ const CUENTA_TIPOS = [
   { value: "inversion", label: "Inversión", icon: TrendingUp },
   { value: "deuda", label: "Deuda", icon: CreditCard },
 ];
+
+// Mapa puramente presentacional: icono por categoría para dar identidad visual
+// a movimientos y desgloses. No participa en ningún cálculo.
+const CATEGORIA_ICONOS = {
+  "Alimentación": ShoppingCart,
+  "Transporte": Bus,
+  "Salud": HeartPulse,
+  "Vivienda": Home,
+  "Educación": GraduationCap,
+  "Tecnología": Laptop2,
+  "Servicios": Zap,
+  "Entretenimiento": Clapperboard,
+  "Suscripciones": RefreshCw,
+  "Mascotas": PawPrint,
+  "Ropa": Shirt,
+  "Viajes": Plane,
+  "Impuestos": Landmark,
+  "Inversiones": TrendingUp,
+  "Otros": MoreHorizontal,
+};
+function iconoCategoria(categoria) {
+  return CATEGORIA_ICONOS[categoria] || MoreHorizontal;
+}
 
 const fmtCOP = (v) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(v || 0);
 const monthKey = (dateStr) => (dateStr || "").slice(0, 7);
@@ -131,48 +140,74 @@ function descargarCSV(filename, rows) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-const DONUT_COLORS = ["#8FBFA6", "#8C9BC7", "#C99089", "#B9A98C", "#7FA6A0", "#9C8FBF"];
+// ============================================================================
+// UI atoms — vocabulario visual compartido por toda la aplicación
+// ============================================================================
 
-// ---------- UI atoms ----------
-function Card({ children, style, className = "" }) {
+// Tarjeta base. variant="flat" quita la sombra/elevación para usos anidados
+// (filas dentro de otra tarjeta); variant="hero" agrega el tratamiento de
+// mayor jerarquía reservado para el patrimonio neto.
+function Card({ children, style, className = "", variant = "default", hoverable = false }) {
+  const base = {
+    default: {
+      background: COLOR.surface,
+      border: `1px solid ${COLOR.hairline}`,
+      boxShadow: SHADOW.md,
+      borderRadius: RADIUS.xl,
+    },
+    flat: {
+      background: COLOR.surfaceAlt,
+      border: `1px solid ${COLOR.hairline}`,
+      boxShadow: "none",
+      borderRadius: RADIUS.lg,
+    },
+    hero: {
+      background: `linear-gradient(165deg, ${COLOR.surfaceRaised} 0%, ${COLOR.surface} 55%)`,
+      border: `1px solid ${COLOR.hairline}`,
+      boxShadow: SHADOW.lg,
+      borderRadius: RADIUS.xxl,
+    },
+  }[variant];
+
   return (
     <div
-      className={`rounded-2xl p-5 transition-transform duration-200 ${className}`}
-      style={{
-        background: COLOR.surface,
-        border: `1px solid ${COLOR.hairline}`,
-        boxShadow: "0 1px 2px rgba(0,0,0,0.35), 0 16px 32px -18px rgba(0,0,0,0.6)",
-        ...style,
-      }}
+      className={`${hoverable ? "raiz-lift" : ""} p-5 ${className}`}
+      style={{ ...base, ...style }}
     >
       {children}
     </div>
   );
 }
 
+// Pestaña de navegación superior con estado activo e indicador suave
 function Pill({ active, onClick, icon: Icon, label }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2 py-2 px-3.5 text-sm whitespace-nowrap rounded-full transition-all duration-150"
+      className="raiz-press flex items-center gap-2 py-2 px-3.5 text-sm whitespace-nowrap rounded-full"
       style={{
-        color: active ? COLOR.bg : COLOR.textMuted,
-        background: active ? COLOR.mint : "transparent",
+        color: active ? COLOR.onAccent : COLOR.textSecondary,
+        background: active ? COLOR.peri : "transparent",
         fontFamily: FONT_BODY,
         fontWeight: active ? 600 : 500,
+        boxShadow: active ? SHADOW.glowPeri : "none",
+        transition: `background ${TRANSITION.base}, color ${TRANSITION.base}, box-shadow ${TRANSITION.base}`,
       }}
+      onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = COLOR.surfaceRaised; }}
+      onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
     >
-      <Icon size={14} strokeWidth={1.75} />
+      <Icon size={14} strokeWidth={1.9} />
       {label}
     </button>
   );
 }
 
-function Field({ label, children }) {
+function Field({ label, children, hint }) {
   return (
     <label className="flex flex-col gap-1.5 text-sm" style={{ fontFamily: FONT_BODY }}>
-      <span style={{ color: COLOR.textMuted, fontSize: 12, letterSpacing: 0.3 }}>{label}</span>
+      <span style={{ color: COLOR.textMuted, fontSize: 11.5, letterSpacing: 0.4, textTransform: "uppercase" }}>{label}</span>
       {children}
+      {hint && <span style={{ color: COLOR.textMuted, fontSize: 11.5 }}>{hint}</span>}
     </label>
   );
 }
@@ -180,14 +215,22 @@ function Field({ label, children }) {
 function ProgressBar({ pct, color }) {
   const clamped = Math.max(0, Math.min(100, pct || 0));
   return (
-    <div style={{ height: 6, borderRadius: 4, background: COLOR.surfaceAlt, overflow: "hidden" }}>
-      <div style={{ width: `${clamped}%`, height: "100%", background: color, transition: "width 0.3s" }} />
+    <div style={{ height: 7, borderRadius: RADIUS.full, background: COLOR.surfaceAlt, overflow: "hidden" }}>
+      <div
+        style={{
+          width: `${clamped}%`,
+          height: "100%",
+          borderRadius: RADIUS.full,
+          background: `linear-gradient(90deg, ${color}99, ${color})`,
+          transition: `width 420ms ${TRANSITION.base.split(" ")[1] || "ease"}`,
+        }}
+      />
     </div>
   );
 }
 
-// Icon-button with a built-in "click again to confirm" step, used anywhere a
-// destructive action needs a lightweight guard without a full modal.
+// Icon-button con paso de confirmación integrado ("clic de nuevo para
+// confirmar"), usado en toda acción destructiva sin recurrir a un modal.
 function ConfirmIconButton({ onConfirm, icon: Icon, confirmIcon: ConfirmIcon = Check, title, className = "", size = 14 }) {
   const [armed, setArmed] = useState(false);
   const timer = useRef(null);
@@ -210,20 +253,141 @@ function ConfirmIconButton({ onConfirm, icon: Icon, confirmIcon: ConfirmIcon = C
     <button
       onClick={handleClick}
       title={armed ? "Clic de nuevo para confirmar" : title}
-      className={`transition-colors ${className}`}
-      style={{ color: armed ? COLOR.coral : COLOR.textMuted }}
+      className={`raiz-press ${className}`}
+      style={{
+        color: armed ? COLOR.coral : COLOR.textMuted,
+        animation: armed ? "raizPulseRing 1.1s ease-out infinite" : "none",
+        borderRadius: RADIUS.full,
+        padding: 4,
+      }}
     >
       {armed ? <ConfirmIcon size={size} /> : <Icon size={size} />}
     </button>
   );
 }
 
-const inputStyle = {
-  background: COLOR.surfaceAlt,
-  border: `1px solid ${COLOR.hairline}`,
-  color: COLOR.textPrimary,
-  fontFamily: FONT_BODY,
-};
+// Insignia circular de icono — unidad visual reutilizada en KPIs, cuentas y
+// filas de movimientos para dar identidad de color/categoría de un vistazo.
+function IconBadge({ icon: Icon, color, soft, size = 34, iconSize = 15 }) {
+  return (
+    <div
+      className="flex items-center justify-center shrink-0"
+      style={{ width: size, height: size, borderRadius: RADIUS.md, background: soft, color }}
+    >
+      <Icon size={iconSize} strokeWidth={2} />
+    </div>
+  );
+}
+
+// Botón primario — misma superficie de acento en cada formulario y CTA de la
+// app (fondo peri + glow). Antes se repetía como objeto de estilo inline en
+// ~8 lugares distintos; ahora vive en un único componente.
+function PrimaryButton({ children, onClick, disabled = false, type = "button", className = "" }) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`raiz-press flex items-center justify-center gap-1.5 rounded-lg text-sm font-medium px-4 py-2.5 ${className}`}
+      style={{
+        background: disabled ? COLOR.surfaceAlt : COLOR.peri,
+        color: disabled ? COLOR.textMuted : COLOR.onAccent,
+        boxShadow: disabled ? "none" : SHADOW.glowPeri,
+        cursor: disabled ? "default" : "pointer",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Botón fantasma — cancelar / descartar, usado en todos los formularios
+function GhostButton({ children, onClick, className = "" }) {
+  return (
+    <button onClick={onClick} className={`raiz-press px-4 py-2.5 rounded-lg text-sm ${className}`} style={{ color: COLOR.textMuted }}>
+      {children}
+    </button>
+  );
+}
+
+// Chip con borde — acciones secundarias (exportar, alternar filtros)
+function OutlineButton({ children, onClick, active = false, disabled = false, className = "" }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`raiz-press flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg ${className}`}
+      style={{
+        border: `1px solid ${active ? COLOR.periBorder : COLOR.hairline}`,
+        background: active ? COLOR.periSoft : "transparent",
+        color: disabled ? COLOR.textMuted : active ? COLOR.peri : COLOR.textPrimary,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Encabezado de sección reutilizado por las tarjetas de contenido (título +
+// acción opcional a la derecha), para que todo bloque de la app comparta el
+// mismo ritmo tipográfico.
+function SectionHeader({ title, action }) {
+  return (
+    <div className="flex items-center justify-between mb-4">
+      <div style={{ fontSize: 14.5, fontWeight: 600, color: COLOR.textPrimary, letterSpacing: -0.1 }}>{title}</div>
+      {action}
+    </div>
+  );
+}
+
+// Overlay modal ligero: envuelve formularios existentes (Cuenta, Movimiento)
+// sin introducir estado nuevo — sigue controlado por el mismo booleano
+// showForm/onCancel que ya manejaba cada pantalla.
+function Modal({ onClose, children, maxWidth = 480 }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 sm:p-6 overflow-y-auto animate-fade-in"
+      style={{ background: COLOR.scrim, backdropFilter: "blur(6px)" }}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full animate-scale-in my-8 sm:my-0" style={{ maxWidth }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// Tooltip de gráficos compartido por Area/Bar/Pie — tipografía y color
+// consistentes en lugar del contentStyle inline repetido en cada gráfico.
+function ChartTooltip({ active, payload, label, formatter = fmtCOP }) {
+  if (!active || !payload || !payload.length) return null;
+  return (
+    <div
+      style={{
+        background: COLOR.surfaceRaised,
+        border: `1px solid ${COLOR.hairlineStrong}`,
+        borderRadius: RADIUS.md,
+        boxShadow: SHADOW.lg,
+        padding: "10px 12px",
+        fontFamily: FONT_BODY,
+        minWidth: 120,
+      }}
+    >
+      {label && <div style={{ fontSize: 11, color: COLOR.textMuted, marginBottom: 6, textTransform: "capitalize" }}>{label}</div>}
+      <div className="flex flex-col gap-1.5">
+        {payload.map((p, i) => (
+          <div key={i} className="flex items-center justify-between gap-4 text-xs">
+            <span className="flex items-center gap-1.5" style={{ color: COLOR.textSecondary }}>
+              <span style={{ width: 7, height: 7, borderRadius: 99, background: p.color || p.fill, display: "inline-block" }} />
+              {p.name}
+            </span>
+            <span style={{ fontFamily: FONT_MONO, color: COLOR.textPrimary }}>{formatter(p.value)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ---------- App principal (una vez autenticado) ----------
 function FinanzasApp({ user, onSignOut }) {
@@ -347,93 +511,110 @@ function FinanzasApp({ user, onSignOut }) {
   if (!ready) {
     return (
       <div style={{ background: COLOR.bg, minHeight: 480 }} className="flex items-center justify-center">
-        <span style={{ color: COLOR.textMuted, fontFamily: FONT_BODY }}>Cargando…</span>
+        <GlobalStyles />
+        <span style={{ color: COLOR.textMuted, fontFamily: FONT_BODY, fontSize: 13.5 }} className="animate-fade-in">Cargando…</span>
       </div>
     );
   }
 
+  const NAV_ITEMS = [
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "movimientos", label: "Movimientos", icon: Receipt },
+    { id: "cuentas", label: "Cuentas", icon: Wallet },
+    { id: "metas", label: "Metas", icon: Target },
+    { id: "reportes", label: "Reportes", icon: PieChartIcon },
+  ];
+
   return (
-<div
+    <div
       style={{
-        background: `radial-gradient(1200px 500px at 50% -10%, rgba(143,191,166,0.06), transparent 60%), ${COLOR.bg}`,
+        background: `
+          radial-gradient(1400px 560px at 50% -12%, ${COLOR.meshPeri}, transparent 60%),
+          radial-gradient(900px 480px at 100% 0%, ${COLOR.meshMint}, transparent 55%),
+          ${COLOR.bg}
+        `,
         minHeight: 480, fontFamily: FONT_BODY, color: COLOR.textPrimary,
       }}
       className="w-full"
-    >      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-        * { box-sizing: border-box; }
-        ::-webkit-scrollbar { height: 6px; width: 6px; }
-        ::-webkit-scrollbar-thumb { background: ${COLOR.hairline}; border-radius: 4px; }
-        input:focus, select:focus, button:focus-visible {
-          outline: none;
-          box-shadow: 0 0 0 2px ${COLOR.periSoft}, 0 0 0 1px ${COLOR.peri};
-        }
-        @media (prefers-reduced-motion: reduce) {
-          * { transition: none !important; }
-        }
-      `}</style>
+    >
+      <GlobalStyles />
 
-      {/* Header */}
-      <div className="px-5 pt-7 pb-4 flex items-center justify-between">
-        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 21, fontStyle: "italic", letterSpacing: 0.2 }}>Ledger</div>
-        <div className="flex items-center gap-3">
-          <ConfirmIconButtonText
-            onConfirm={async () => {
-              setCuentas([]); setMovimientos([]); setPresupuestos([]); setMetas([]);
-              try {
-                await supabase.from("raiz_data").upsert({ user_id: user.id, payload: {} });
-              } catch (e) { console.error(e); }
-            }}
-          />
-          <button onClick={onSignOut} className="text-xs" style={{ color: COLOR.textMuted }}>
-            Cerrar sesión
-          </button>
-        </div>
-      </div>
+      {/* ---------- Barra de navegación: glass, sticky, estados activos ---------- */}
+      <header className="sticky top-0 z-30" style={{ backdropFilter: "blur(18px) saturate(160%)", WebkitBackdropFilter: "blur(18px) saturate(160%)", background: COLOR.glassNav, borderBottom: `1px solid ${COLOR.hairline}` }}>
+        <div className="max-w-app mx-auto px-5 lg:px-10 h-16 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center justify-center" style={{ width: 28, height: 28, borderRadius: RADIUS.md, background: COLOR.periSoft, border: `1px solid ${COLOR.periBorder}` }}>
+              <Sparkles size={13} strokeWidth={2} color={COLOR.peri} />
+            </div>
+            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 19, fontStyle: "italic", letterSpacing: 0.2 }}>Ledger</div>
+          </div>
 
-      {/* Tabs */}
-      <div className="px-5 pb-3">
-        <div
-          className="flex gap-1 overflow-x-auto p-1.5 rounded-2xl w-fit"
-          style={{ background: COLOR.surface, border: `1px solid ${COLOR.hairline}` }}
-        >
-          <Pill active={tab === "dashboard"} onClick={() => setTab("dashboard")} icon={LayoutDashboard} label="Dashboard" />
-          <Pill active={tab === "movimientos"} onClick={() => setTab("movimientos")} icon={Receipt} label="Movimientos" />
-          <Pill active={tab === "cuentas"} onClick={() => setTab("cuentas")} icon={Wallet} label="Cuentas" />
-          <Pill active={tab === "metas"} onClick={() => setTab("metas")} icon={Target} label="Metas" />
-          <Pill active={tab === "reportes"} onClick={() => setTab("reportes")} icon={PieChartIcon} label="Reportes" />
+          <nav className="hidden md:flex items-center gap-1 p-1 rounded-full overflow-x-auto" style={{ background: COLOR.surface, border: `1px solid ${COLOR.hairline}` }}>
+            {NAV_ITEMS.map((item) => (
+              <Pill key={item.id} active={tab === item.id} onClick={() => setTab(item.id)} icon={item.icon} label={item.label} />
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-3 shrink-0">
+            <ConfirmIconButtonText
+              onConfirm={async () => {
+                setCuentas([]); setMovimientos([]); setPresupuestos([]); setMetas([]);
+                try {
+                  await supabase.from("raiz_data").upsert({ user_id: user.id, payload: {} });
+                } catch (e) { console.error(e); }
+              }}
+            />
+            <div style={{ width: 1, height: 18, background: COLOR.hairlineStrong }} className="hidden sm:block" />
+            <button onClick={onSignOut} className="raiz-press flex items-center gap-1.5 text-xs" style={{ color: COLOR.textMuted }}>
+              <LogOut size={13} strokeWidth={1.9} />
+              <span className="hidden sm:inline">Cerrar sesión</span>
+            </button>
+          </div>
         </div>
-      </div>
-      <div className="p-5 max-w-3xl mx-auto">
-        {tab === "dashboard" && (
-          <Dashboard cuentas={cuentas} totales={totales} serie={serie} catBreak={catBreak} deltaPct={deltaPct}
-            ahorroPct={ahorroPct} mesActual={mesActual} alertas={alertas}
-            onIrCuentas={() => setTab("cuentas")} onIrMovs={() => setTab("movimientos")} onIrMetas={() => setTab("metas")} />
-        )}
-        {tab === "movimientos" && (
-          <Movimientos cuentas={cuentas} movimientos={movimientos} presupuestos={presupuestos}
-            filtroCuenta={filtroCuenta} setFiltroCuenta={setFiltroCuenta}
-            showForm={showMovForm} setShowForm={setShowMovForm}
-            onAgregar={agregarMovimiento} onEditar={actualizarMovimiento} onEliminar={eliminarMovimiento} />
-        )}
-        {tab === "cuentas" && (
-          <Cuentas cuentas={cuentas} movimientos={movimientos} showForm={showCuentaForm} setShowForm={setShowCuentaForm}
-            onAgregar={agregarCuenta} onEliminar={eliminarCuenta} />
-        )}
-        {tab === "metas" && (
-          <Metas cuentas={cuentas} movimientos={movimientos} presupuestos={presupuestos} metas={metas}
-            onAgregarPresupuesto={agregarPresupuesto} onEliminarPresupuesto={eliminarPresupuesto}
-            onAgregarMeta={agregarMeta} onEliminarMeta={eliminarMeta} />
-        )}
-        {tab === "reportes" && (
-          <Reportes cuentas={cuentas} movimientos={movimientos} serie={serie} catBreak={catBreak} periodo={periodo} setPeriodo={setPeriodo} />
-        )}
-      </div>
+
+        {/* Nav móvil: misma pastilla, scroll horizontal */}
+        <div className="md:hidden px-5 pb-3 -mt-1">
+          <div className="flex gap-1 overflow-x-auto raiz-scrollbar-x p-1 rounded-full w-fit" style={{ background: COLOR.surface, border: `1px solid ${COLOR.hairline}` }}>
+            {NAV_ITEMS.map((item) => (
+              <Pill key={item.id} active={tab === item.id} onClick={() => setTab(item.id)} icon={item.icon} label={item.label} />
+            ))}
+          </div>
+        </div>
+      </header>
+
+      {/* ---------- Contenido, ancho máximo 1440px ---------- */}
+      <main className="max-w-app mx-auto w-full px-5 lg:px-10 py-7 lg:py-9">
+        <div key={tab} className="animate-fade-in">
+          {tab === "dashboard" && (
+            <Dashboard cuentas={cuentas} totales={totales} serie={serie} catBreak={catBreak} deltaPct={deltaPct}
+              ahorroPct={ahorroPct} mesActual={mesActual} alertas={alertas}
+              onIrCuentas={() => setTab("cuentas")} onIrMovs={() => setTab("movimientos")} onIrMetas={() => setTab("metas")} />
+          )}
+          {tab === "movimientos" && (
+            <Movimientos cuentas={cuentas} movimientos={movimientos} presupuestos={presupuestos}
+              filtroCuenta={filtroCuenta} setFiltroCuenta={setFiltroCuenta}
+              showForm={showMovForm} setShowForm={setShowMovForm}
+              onAgregar={agregarMovimiento} onEditar={actualizarMovimiento} onEliminar={eliminarMovimiento} />
+          )}
+          {tab === "cuentas" && (
+            <Cuentas cuentas={cuentas} movimientos={movimientos} showForm={showCuentaForm} setShowForm={setShowCuentaForm}
+              onAgregar={agregarCuenta} onEliminar={eliminarCuenta} />
+          )}
+          {tab === "metas" && (
+            <Metas cuentas={cuentas} movimientos={movimientos} presupuestos={presupuestos} metas={metas}
+              onAgregarPresupuesto={agregarPresupuesto} onEliminarPresupuesto={eliminarPresupuesto}
+              onAgregarMeta={agregarMeta} onEliminarMeta={eliminarMeta} />
+          )}
+          {tab === "reportes" && (
+            <Reportes cuentas={cuentas} movimientos={movimientos} serie={serie} catBreak={catBreak} periodo={periodo} setPeriodo={setPeriodo} />
+          )}
+        </div>
+      </main>
     </div>
   );
 }
 
-// Small text-based confirm control used only for the header "Restablecer" action.
+// Control de confirmación textual usado solo en la acción "Restablecer" del header.
 function ConfirmIconButtonText({ onConfirm }) {
   const [armed, setArmed] = useState(false);
   const timer = useRef(null);
@@ -441,12 +622,12 @@ function ConfirmIconButtonText({ onConfirm }) {
 
   if (armed) {
     return (
-      <div className="flex items-center gap-2">
-        <button onClick={() => { clearTimeout(timer.current); setArmed(false); }} className="text-xs" style={{ color: COLOR.textMuted }}>Cancelar</button>
+      <div className="flex items-center gap-2 animate-fade-in">
+        <button onClick={() => { clearTimeout(timer.current); setArmed(false); }} className="raiz-press text-xs" style={{ color: COLOR.textMuted }}>Cancelar</button>
         <button
           onClick={() => { clearTimeout(timer.current); setArmed(false); onConfirm(); }}
-          className="text-xs px-3 py-1.5 rounded-lg"
-          style={{ background: COLOR.coralSoft, color: COLOR.coral, border: `1px solid ${COLOR.hairline}` }}
+          className="raiz-press text-xs px-3 py-1.5 rounded-lg"
+          style={{ background: COLOR.coralSoft, color: COLOR.coral, border: `1px solid ${COLOR.coralBorder}` }}
         >
           ¿Seguro? Borrar todo
         </button>
@@ -456,144 +637,216 @@ function ConfirmIconButtonText({ onConfirm }) {
   return (
     <button
       onClick={() => { setArmed(true); timer.current = setTimeout(() => setArmed(false), 4000); }}
-      className="text-xs"
+      className="raiz-press flex items-center gap-1.5 text-xs"
       style={{ color: COLOR.textMuted }}
     >
-      Restablecer
+      <RotateCcw size={12.5} strokeWidth={1.9} />
+      <span className="hidden lg:inline">Restablecer</span>
     </button>
   );
 }
 
-// ---------- Dashboard ----------
+// ============================================================================
+// Dashboard — Hero de patrimonio (elemento dominante) + KPIs + gráficos
+// ============================================================================
 function Dashboard({ cuentas, totales, serie, catBreak, deltaPct, ahorroPct, mesActual, alertas, onIrCuentas, onIrMovs, onIrMetas }) {
   if (cuentas.length === 0) {
     return (
-      <Card className="text-center py-10">
-        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, fontStyle: "italic" }}>Tu panorama financiero empieza aquí</div>
-        <p style={{ color: COLOR.textMuted, fontSize: 14, marginTop: 8, maxWidth: 380, marginLeft: "auto", marginRight: "auto" }}>
-          Raíz no guarda saldos: calcula todo a partir de tus movimientos. Empieza agregando la primera cuenta donde vive tu dinero.
+      <Card variant="hero" className="text-center py-14 px-6">
+        <div className="flex items-center justify-center mb-4">
+          <div className="flex items-center justify-center" style={{ width: 52, height: 52, borderRadius: RADIUS.xl, background: COLOR.periSoft, border: `1px solid ${COLOR.periBorder}` }}>
+            <Sparkles size={22} color={COLOR.peri} strokeWidth={1.8} />
+          </div>
+        </div>
+        <div style={{ fontFamily: FONT_DISPLAY, fontSize: 26, fontStyle: "italic" }}>Tu panorama financiero empieza aquí</div>
+        <p style={{ color: COLOR.textMuted, fontSize: 14, marginTop: 10, maxWidth: 400, marginLeft: "auto", marginRight: "auto", lineHeight: 1.6 }}>
+          Ledger no guarda saldos: calcula todo a partir de tus movimientos. Empieza agregando la primera cuenta donde vive tu dinero.
         </p>
-        <button onClick={onIrCuentas} className="mt-5 px-4 py-2 rounded-lg text-sm font-medium" style={{ background: COLOR.mint, color: "#08130E" }}>
-          Agregar primera cuenta
-        </button>
+        <PrimaryButton onClick={onIrCuentas} className="!inline-flex !rounded-xl !px-5 mt-6">
+          Agregar primera cuenta <ArrowRight size={15} />
+        </PrimaryButton>
       </Card>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5 lg:gap-6">
       {alertas.length > 0 && (
-        <button onClick={onIrMetas} className="flex items-center gap-2 px-4 py-3 rounded-xl text-left text-sm"
-          style={{ background: COLOR.coralSoft, border: `1px solid ${COLOR.hairline}`, color: COLOR.coral }}>
-          <AlertTriangle size={15} />
+        <button onClick={onIrMetas} className="raiz-press flex items-center gap-2.5 px-4 py-3 rounded-xl text-left text-sm"
+          style={{ background: COLOR.coralSoft, border: `1px solid ${COLOR.coralBorder}`, color: COLOR.coral }}>
+          <AlertTriangle size={16} className="shrink-0" />
           {alertas.length} presupuesto{alertas.length > 1 ? "s" : ""} superado{alertas.length > 1 ? "s" : ""} este mes — revisar
+          <ArrowRight size={14} className="ml-auto shrink-0" />
         </button>
       )}
 
-      <Card>
-        <div style={{ color: COLOR.textMuted, fontSize: 12, letterSpacing: 0.4, textTransform: "uppercase" }}>Patrimonio neto</div>
-        <div className="flex items-end gap-3 mt-1">
-          <div style={{ fontFamily: FONT_MONO, fontSize: 32, fontWeight: 500 }}>{fmtCOP(totales.patrimonio)}</div>
-          {serie.length > 1 && (
-            <div className="flex items-center gap-1 mb-1.5 text-xs" style={{ color: deltaPct >= 0 ? COLOR.mint : COLOR.coral }}>
-              {deltaPct >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
-              {Math.abs(deltaPct).toFixed(1)}% vs mes pasado
+      {/* ---------- Hero: patrimonio neto, el elemento dominante ---------- */}
+      <Card variant="hero" className="!p-6 lg:!p-9 relative overflow-hidden">
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute", inset: 0, pointerEvents: "none",
+            background: `radial-gradient(520px 220px at 88% -10%, ${deltaPct >= 0 ? COLOR.meshMint : COLOR.meshCoral}, transparent 65%)`,
+          }}
+        />
+        <div className="relative flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+          <div className="min-w-0">
+            <div style={{ color: COLOR.textMuted, fontSize: 12, letterSpacing: 0.6, textTransform: "uppercase", fontWeight: 600 }}>Patrimonio neto</div>
+            <div className="flex items-end gap-3 mt-2 flex-wrap">
+              <div className="tabular-nums" style={{ fontFamily: FONT_DISPLAY, fontSize: "clamp(34px, 5vw, 56px)", fontWeight: 500, letterSpacing: -0.5, lineHeight: 1 }}>
+                {fmtCOP(totales.patrimonio)}
+              </div>
+              {serie.length > 1 && (
+                <div className="flex items-center gap-1 mb-1.5 text-xs font-medium px-2 py-1 rounded-full"
+                  style={{ color: deltaPct >= 0 ? COLOR.mint : COLOR.coral, background: deltaPct >= 0 ? COLOR.mintSoft : COLOR.coralSoft }}>
+                  {deltaPct >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+                  {Math.abs(deltaPct).toFixed(1)}% vs. mes pasado
+                </div>
+              )}
             </div>
-          )}
+          </div>
+
+          <div className="flex items-center gap-5 lg:gap-6 shrink-0">
+            <div>
+              <div style={{ color: COLOR.textMuted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.4 }}>Disponible</div>
+              <div className="tabular-nums" style={{ fontFamily: FONT_MONO, fontSize: 15, marginTop: 3, color: COLOR.textSecondary }}>{fmtCOP(totales.liquido)}</div>
+            </div>
+            <div style={{ width: 1, height: 28, background: COLOR.hairlineStrong }} />
+            <div>
+              <div style={{ color: COLOR.textMuted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.4 }}>Invertido</div>
+              <div className="tabular-nums" style={{ fontFamily: FONT_MONO, fontSize: 15, marginTop: 3, color: COLOR.textSecondary }}>{fmtCOP(totales.inversion)}</div>
+            </div>
+            {totales.deuda > 0 && (
+              <>
+                <div style={{ width: 1, height: 28, background: COLOR.hairlineStrong }} />
+                <div>
+                  <div style={{ color: COLOR.textMuted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.4 }}>Deuda</div>
+                  <div className="tabular-nums" style={{ fontFamily: FONT_MONO, fontSize: 15, marginTop: 3, color: COLOR.coral }}>{fmtCOP(totales.deuda)}</div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
-        <div style={{ height: 70, marginTop: 10 }}>
+
+        <div className="relative" style={{ height: 120, marginTop: 20 }}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={serie} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="patrGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={COLOR.mint} stopOpacity={0.35} />
+                  <stop offset="0%" stopColor={COLOR.mint} stopOpacity={0.38} />
                   <stop offset="100%" stopColor={COLOR.mint} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <Area type="monotone" dataKey="patrimonio" stroke={COLOR.mint} strokeWidth={2} fill="url(#patrGrad)" />
-              <Tooltip contentStyle={{ background: COLOR.surfaceAlt, border: `1px solid ${COLOR.hairline}`, borderRadius: 8, fontSize: 12 }}
-                formatter={(v) => fmtCOP(v)} labelFormatter={() => ""} />
+              <XAxis dataKey="mes" tick={{ fill: COLOR.textMuted, fontSize: 11.5, fontFamily: FONT_BODY }} axisLine={false} tickLine={false} />
+              <Area type="monotone" dataKey="patrimonio" stroke={COLOR.mint} strokeWidth={2.25} fill="url(#patrGrad)" activeDot={{ r: 4, strokeWidth: 0 }} />
+              <Tooltip content={<ChartTooltip />} cursor={{ stroke: COLOR.hairlineStrong, strokeWidth: 1 }} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
       </Card>
 
-      <div className="grid grid-cols-3 gap-3">
-        <Card className="!p-4">
-          <div className="flex items-center gap-1.5" style={{ color: COLOR.textMuted, fontSize: 11 }}><Wallet size={12} /> Disponible</div>
-          <div style={{ fontFamily: FONT_MONO, fontSize: 16, marginTop: 6 }}>{fmtCOP(totales.liquido)}</div>
+      {/* ---------- KPIs secundarios ---------- */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card hoverable className="!p-5">
+          <div className="flex items-center justify-between">
+            <IconBadge icon={Wallet} color={COLOR.peri} soft={COLOR.periSoft} />
+            <span style={{ fontSize: 11, color: COLOR.textMuted }}>{cuentas.filter((c) => c.tipo === "liquido").length} cuenta{cuentas.filter((c) => c.tipo === "liquido").length !== 1 ? "s" : ""}</span>
+          </div>
+          <div style={{ color: COLOR.textMuted, fontSize: 12, marginTop: 14 }}>Disponible</div>
+          <div className="tabular-nums" style={{ fontFamily: FONT_MONO, fontSize: 20, marginTop: 2, fontWeight: 500 }}>{fmtCOP(totales.liquido)}</div>
         </Card>
-        <Card className="!p-4">
-          <div className="flex items-center gap-1.5" style={{ color: COLOR.textMuted, fontSize: 11 }}><TrendingUp size={12} /> Invertido</div>
-          <div style={{ fontFamily: FONT_MONO, fontSize: 16, marginTop: 6 }}>{fmtCOP(totales.inversion)}</div>
+
+        <Card hoverable className="!p-5">
+          <div className="flex items-center justify-between">
+            <IconBadge icon={TrendingUp} color={COLOR.gold} soft={COLOR.goldSoft} />
+            <span style={{ fontSize: 11, color: COLOR.textMuted }}>{cuentas.filter((c) => c.tipo === "inversion").length} cuenta{cuentas.filter((c) => c.tipo === "inversion").length !== 1 ? "s" : ""}</span>
+          </div>
+          <div style={{ color: COLOR.textMuted, fontSize: 12, marginTop: 14 }}>Invertido</div>
+          <div className="tabular-nums" style={{ fontFamily: FONT_MONO, fontSize: 20, marginTop: 2, fontWeight: 500 }}>{fmtCOP(totales.inversion)}</div>
         </Card>
-        <Card className="!p-4">
-          <div className="flex items-center gap-1.5" style={{ color: COLOR.textMuted, fontSize: 11 }}><Sparkles size={12} /> Ahorro del mes</div>
-          <div style={{ fontFamily: FONT_MONO, fontSize: 16, marginTop: 6, color: ahorroPct >= 0 ? COLOR.mint : COLOR.coral }}>{ahorroPct.toFixed(0)}%</div>
+
+        <Card hoverable className="!p-5">
+          <div className="flex items-center justify-between">
+            <IconBadge icon={Sparkles} color={ahorroPct >= 0 ? COLOR.mint : COLOR.coral} soft={ahorroPct >= 0 ? COLOR.mintSoft : COLOR.coralSoft} />
+            <span style={{ fontSize: 11, color: COLOR.textMuted }} className="tabular-nums">{fmtCOP(mesActual.ingresos - mesActual.gastos)}</span>
+          </div>
+          <div style={{ color: COLOR.textMuted, fontSize: 12, marginTop: 14 }}>Ahorro del mes</div>
+          <div className="tabular-nums" style={{ fontFamily: FONT_MONO, fontSize: 20, marginTop: 2, fontWeight: 500, color: ahorroPct >= 0 ? COLOR.mint : COLOR.coral }}>{ahorroPct.toFixed(0)}%</div>
         </Card>
       </div>
 
-      <Card>
-        <div style={{ fontSize: 13, color: COLOR.textMuted, marginBottom: 8 }}>Ingresos vs. gastos · últimos 6 meses</div>
-        <div style={{ height: 160 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={serie} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-              <CartesianGrid vertical={false} stroke={COLOR.hairline} strokeDasharray="3 4" />
-              <XAxis dataKey="mes" tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis hide />
-              <Tooltip contentStyle={{ background: COLOR.surfaceAlt, border: `1px solid ${COLOR.hairline}`, borderRadius: 8, fontSize: 12 }} formatter={(v) => fmtCOP(v)} />
-              <Bar dataKey="ingresos" fill={COLOR.mint} radius={[4, 4, 0, 0]} />
-              <Bar dataKey="gastos" fill={COLOR.coral} radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
+      {/* ---------- Gráficos: ingresos/gastos + desglose por categoría ---------- */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2">
+          <SectionHeader title="Ingresos vs. gastos · últimos 6 meses" />
+          <div style={{ height: 190 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={serie} margin={{ top: 0, right: 0, left: 0, bottom: 0 }} barGap={6}>
+                <CartesianGrid vertical={false} stroke={COLOR.hairline} strokeDasharray="3 5" />
+                <XAxis dataKey="mes" tick={{ fill: COLOR.textMuted, fontSize: 11.5 }} axisLine={false} tickLine={false} />
+                <YAxis hide />
+                <Tooltip content={<ChartTooltip />} cursor={{ fill: COLOR.surfaceAlt }} />
+                <Bar dataKey="ingresos" name="Ingresos" fill={COLOR.mint} radius={[6, 6, 0, 0]} maxBarSize={22} />
+                <Bar dataKey="gastos" name="Gastos" fill={COLOR.coral} radius={[6, 6, 0, 0]} maxBarSize={22} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        <Card>
+          <SectionHeader title="Gastos por categoría · este mes" />
+          {catBreak.length === 0 ? (
+            <div className="flex flex-col items-center justify-center text-center h-full py-6" style={{ color: COLOR.textMuted, fontSize: 13 }}>
+              Sin gastos registrados este mes.
+            </div>
+          ) : <DonutBreakdown data={catBreak} compact />}
+        </Card>
+      </div>
 
       {mesActual.ingresos === 0 && mesActual.gastos === 0 && (
-        <button onClick={onIrMovs} className="text-sm underline text-center" style={{ color: COLOR.peri }}>
-          Registra tu primer movimiento del mes →
+        <button onClick={onIrMovs} className="raiz-press flex items-center justify-center gap-1.5 text-sm self-center" style={{ color: COLOR.peri }}>
+          Registra tu primer movimiento del mes <ArrowRight size={14} />
         </button>
-      )}
-
-      {catBreak.length > 0 && (
-        <Card>
-          <div style={{ fontSize: 13, color: COLOR.textMuted, marginBottom: 8 }}>Gastos por categoría · este mes</div>
-          <DonutBreakdown data={catBreak} />
-        </Card>
       )}
     </div>
   );
 }
 
-function DonutBreakdown({ data }) {
+function DonutBreakdown({ data, compact = false }) {
   return (
-    <div className="flex items-center gap-4 flex-wrap">
-      <div style={{ width: 120, height: 120, flexShrink: 0 }}>
+    <div className={`flex ${compact ? "flex-col" : "flex-row flex-wrap"} items-center gap-5`}>
+      <div style={{ width: compact ? 140 : 120, height: compact ? 140 : 120, flexShrink: 0 }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie data={data} dataKey="monto" nameKey="categoria" innerRadius={38} outerRadius={58} paddingAngle={2} stroke="none">
+            <Pie data={data} dataKey="monto" nameKey="categoria" innerRadius={compact ? 44 : 38} outerRadius={compact ? 66 : 58} paddingAngle={3} stroke="none" cornerRadius={4}>
               {data.map((_, i) => <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />)}
             </Pie>
-            <Tooltip contentStyle={{ background: COLOR.surfaceAlt, border: `1px solid ${COLOR.hairline}`, borderRadius: 8, fontSize: 12 }} formatter={(v) => fmtCOP(v)} />
+            <Tooltip content={<ChartTooltip />} />
           </PieChart>
         </ResponsiveContainer>
       </div>
-      <div className="flex-1 min-w-[160px] flex flex-col gap-1.5">
-        {data.slice(0, 6).map((d, i) => (
-          <div key={d.categoria} className="flex items-center justify-between text-xs">
-            <span className="flex items-center gap-1.5" style={{ color: COLOR.textMuted }}>
-              <span style={{ width: 7, height: 7, borderRadius: 99, background: DONUT_COLORS[i % DONUT_COLORS.length], display: "inline-block" }} />
-              {d.categoria}
-            </span>
-            <span style={{ fontFamily: FONT_MONO }}>{d.pct.toFixed(0)}%</span>
-          </div>
-        ))}
+      <div className="flex-1 min-w-[160px] w-full flex flex-col gap-2">
+        {data.slice(0, 6).map((d, i) => {
+          const Icon = iconoCategoria(d.categoria);
+          return (
+            <div key={d.categoria} className="flex items-center justify-between text-xs gap-2">
+              <span className="flex items-center gap-2 min-w-0" style={{ color: COLOR.textSecondary }}>
+                <span style={{ width: 7, height: 7, borderRadius: 99, background: DONUT_COLORS[i % DONUT_COLORS.length], display: "inline-block", flexShrink: 0 }} />
+                <Icon size={12.5} style={{ color: COLOR.textMuted, flexShrink: 0 }} />
+                <span className="truncate">{d.categoria}</span>
+              </span>
+              <span style={{ fontFamily: FONT_MONO, color: COLOR.textPrimary, flexShrink: 0 }}>{d.pct.toFixed(0)}%</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// ---------- Movimientos ----------
+// ============================================================================
+// Movimientos — filtros, tabla y formulario en modal
+// ============================================================================
 function Movimientos({ cuentas, movimientos, presupuestos, filtroCuenta, setFiltroCuenta, showForm, setShowForm, onAgregar, onEditar, onEliminar }) {
   const [busqueda, setBusqueda] = useState("");
   const [editingMov, setEditingMov] = useState(null);
@@ -623,6 +876,15 @@ function Movimientos({ cuentas, movimientos, presupuestos, filtroCuenta, setFilt
   const totalFiltrado = useMemo(() => filtrados.reduce((a, m) => a + (m.signo === "entrada" ? m.monto : -m.monto), 0), [filtrados]);
   const hayFiltrosActivos = desde || hasta || busqueda.trim();
 
+  // Antes: cada fila de la lista hacía cuentas.find(c => c.id === m.cuenta) ->
+  // O(n_movimientos * n_cuentas) en cada render. Con un mapa por id queda en
+  // O(n_movimientos + n_cuentas).
+  const cuentaPorId = useMemo(() => {
+    const map = {};
+    cuentas.forEach((c) => { map[c.id] = c; });
+    return map;
+  }, [cuentas]);
+
   function abrirNuevo() { setEditingMov(null); setShowForm(true); }
   function abrirEditar(m) { setEditingMov(m); setShowForm(true); }
   function cerrarForm() { setEditingMov(null); setShowForm(false); }
@@ -646,29 +908,25 @@ function Movimientos({ cuentas, movimientos, presupuestos, filtroCuenta, setFilt
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2 flex-wrap">
-        <select value={filtroCuenta} onChange={(e) => setFiltroCuenta(e.target.value)} className="text-sm rounded-lg px-3 py-2" style={inputStyle}>
+        <select value={filtroCuenta} onChange={(e) => setFiltroCuenta(e.target.value)} className="text-sm rounded-lg px-3 py-2.5" style={inputStyle}>
           <option value="todas">Todas las cuentas</option>
           {cuentas.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
         </select>
-        <div className="flex items-center gap-1.5 rounded-lg px-3 py-2 flex-1 min-w-[140px]" style={inputStyle}>
+        <div className="flex items-center gap-1.5 rounded-lg px-3 py-2.5 flex-1 min-w-[140px]" style={inputStyle}>
           <Search size={14} color={COLOR.textMuted} />
           <input type="text" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar…"
             className="bg-transparent outline-none text-sm flex-1" style={{ color: COLOR.textPrimary, fontFamily: FONT_BODY }} />
         </div>
-        <button onClick={() => setShowFiltros((s) => !s)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm"
-          style={{ background: (desde || hasta) ? COLOR.periSoft : "transparent", color: (desde || hasta) ? COLOR.peri : COLOR.textMuted, border: `1px solid ${(desde || hasta) ? "rgba(140,155,199,0.35)" : COLOR.hairline}` }}>
-          <Calendar size={14} strokeWidth={1.75} /> Fechas
-        </button>
-        <button onClick={abrirNuevo} disabled={cuentas.length === 0}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm"
-          style={{ background: "transparent", color: cuentas.length ? COLOR.textPrimary : COLOR.textMuted, border: `1px solid ${COLOR.hairline}` }}>
-          <Plus size={14} strokeWidth={1.75} /> Nuevo
-        </button>
+        <OutlineButton onClick={() => setShowFiltros((s) => !s)} active={!!(desde || hasta)} className="!text-sm !px-3 !py-2.5">
+          <Calendar size={14} strokeWidth={1.9} /> Fechas
+        </OutlineButton>
+        <PrimaryButton onClick={abrirNuevo} disabled={cuentas.length === 0}>
+          <Plus size={14} strokeWidth={2} /> Nuevo
+        </PrimaryButton>
       </div>
 
       {showFiltros && (
-        <Card className="!p-3">
+        <Card className="!p-4 animate-slide-up">
           <div className="flex items-end gap-3 flex-wrap">
             <Field label="Desde">
               <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="rounded-lg px-3 py-2 text-sm" style={inputStyle} />
@@ -677,7 +935,7 @@ function Movimientos({ cuentas, movimientos, presupuestos, filtroCuenta, setFilt
               <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="rounded-lg px-3 py-2 text-sm" style={inputStyle} />
             </Field>
             {(desde || hasta) && (
-              <button onClick={() => { setDesde(""); setHasta(""); }} className="text-xs pb-2.5" style={{ color: COLOR.textMuted }}>Quitar rango</button>
+              <button onClick={() => { setDesde(""); setHasta(""); }} className="raiz-press text-xs pb-2.5" style={{ color: COLOR.textMuted }}>Quitar rango</button>
             )}
           </div>
         </Card>
@@ -687,51 +945,59 @@ function Movimientos({ cuentas, movimientos, presupuestos, filtroCuenta, setFilt
         <Card><div style={{ color: COLOR.textMuted, fontSize: 14 }}>Primero crea una cuenta en la pestaña Cuentas para poder registrar movimientos.</div></Card>
       )}
 
-      {showForm && <MovForm cuentas={cuentas} presupuestos={presupuestos} movimientos={movimientos} initial={editingMov} onCancel={cerrarForm} onGuardar={guardar} />}
+      {showForm && (
+        <Modal onClose={cerrarForm} maxWidth={560}>
+          <MovForm cuentas={cuentas} presupuestos={presupuestos} movimientos={movimientos} initial={editingMov} onCancel={cerrarForm} onGuardar={guardar} />
+        </Modal>
+      )}
 
       {movimientos.length > 0 && (
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <div style={{ fontSize: 12, color: COLOR.textMuted }}>
+          <div style={{ fontSize: 12.5, color: COLOR.textMuted }}>
             {filtrados.length} movimiento{filtrados.length !== 1 ? "s" : ""}
             {hayFiltrosActivos && (
               <>
-                {" · "}<span style={{ fontFamily: FONT_MONO, color: totalFiltrado >= 0 ? COLOR.mint : COLOR.coral }}>{fmtCOP(totalFiltrado)}</span> neto
-                {" · "}<button onClick={limpiarFiltros} className="underline" style={{ color: COLOR.peri }}>limpiar filtros</button>
+                {" · "}<span className="tabular-nums" style={{ fontFamily: FONT_MONO, color: totalFiltrado >= 0 ? COLOR.mint : COLOR.coral }}>{fmtCOP(totalFiltrado)}</span> neto
+                {" · "}<button onClick={limpiarFiltros} className="raiz-press underline underline-offset-2" style={{ color: COLOR.peri }}>limpiar filtros</button>
               </>
             )}
           </div>
-          <button onClick={exportarCSV} disabled={filtrados.length === 0}
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg"
-            style={{ border: `1px solid ${COLOR.hairline}`, color: filtrados.length ? COLOR.textPrimary : COLOR.textMuted }}>
-            <Download size={12} strokeWidth={1.75} /> Exportar CSV
-          </button>
+          <OutlineButton onClick={exportarCSV} disabled={filtrados.length === 0}>
+            <Download size={12} strokeWidth={1.9} /> Exportar CSV
+          </OutlineButton>
         </div>
       )}
 
       <Card className="!p-0 overflow-hidden">
         {filtrados.length === 0 ? (
-          <div className="p-6 text-center" style={{ color: COLOR.textMuted, fontSize: 14 }}>
+          <div className="p-8 text-center" style={{ color: COLOR.textMuted, fontSize: 14 }}>
             {hayFiltrosActivos ? "Sin resultados para este filtro." : "Aún no hay movimientos registrados."}
           </div>
         ) : (
           filtrados.map((m, i) => {
-            const cuenta = cuentas.find((c) => c.id === m.cuenta);
+            const cuenta = cuentaPorId[m.cuenta];
             const positivo = m.signo === "entrada";
+            const Icon = iconoCategoria(m.categoria);
             return (
-              <div key={m.id} className="flex items-center justify-between gap-3 px-4 py-3 group"
-                style={{ borderTop: i === 0 ? "none" : `1px dashed ${COLOR.hairline}` }}>
-                <div className="flex flex-col min-w-0">
-                  <span style={{ fontSize: 13.5 }}>{m.descripcion || m.tipo}</span>
-                  <span style={{ fontSize: 11, color: COLOR.textMuted }}>
-                    {new Date(m.fecha + "T00:00:00").toLocaleDateString("es-CO", { day: "2-digit", month: "short" })} · {cuenta?.nombre || "—"} · {m.categoria}
-                  </span>
+              <div key={m.id} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 group transition-colors"
+                style={{ borderTop: i === 0 ? "none" : `1px solid ${COLOR.hairline}` }}
+                onMouseEnter={(e) => e.currentTarget.style.background = COLOR.surfaceAlt}
+                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                <div className="flex items-center gap-3 min-w-0">
+                  <IconBadge icon={Icon} color={positivo ? COLOR.mint : COLOR.textSecondary} soft={positivo ? COLOR.mintSoft : COLOR.surfaceAlt} size={32} iconSize={14} />
+                  <div className="flex flex-col min-w-0">
+                    <span className="truncate" style={{ fontSize: 13.5, color: COLOR.textPrimary }}>{m.descripcion || m.tipo}</span>
+                    <span className="truncate" style={{ fontSize: 11.5, color: COLOR.textMuted }}>
+                      {new Date(m.fecha + "T00:00:00").toLocaleDateString("es-CO", { day: "2-digit", month: "short" })} · {cuenta?.nombre || "—"} · {m.categoria}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  {conSaldo && <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textMuted }}>{fmtCOP(conSaldo[m.id])}</span>}
-                  <span style={{ fontFamily: FONT_MONO, fontSize: 13.5, color: positivo ? COLOR.mint : COLOR.coral }}>
+                  {conSaldo && <span className="hidden sm:inline tabular-nums" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textMuted }}>{fmtCOP(conSaldo[m.id])}</span>}
+                  <span className="tabular-nums" style={{ fontFamily: FONT_MONO, fontSize: 13.5, fontWeight: 500, color: positivo ? COLOR.mint : COLOR.coral }}>
                     {positivo ? "+" : "−"}{fmtCOP(m.monto).replace("-", "")}
                   </span>
-                  <button onClick={() => abrirEditar(m)} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: COLOR.textMuted }}>
+                  <button onClick={() => abrirEditar(m)} className="raiz-press opacity-0 group-hover:opacity-100" style={{ color: COLOR.textMuted }}>
                     <Pencil size={13} />
                   </button>
                   <ConfirmIconButton onConfirm={() => onEliminar(m.id)} icon={Trash2} className="opacity-0 group-hover:opacity-100" />
@@ -770,40 +1036,41 @@ function MovForm({ cuentas, presupuestos = [], movimientos = [], initial, onCanc
   const gastadoConEste = tipo === "Gasto" && signo === "salida" && Number(monto) > 0 ? gastadoActual + Number(monto) : gastadoActual;
 
   return (
-    <Card>
-      <div className="grid grid-cols-2 gap-3">
+    <Card variant="hero" className="!p-6">
+      <SectionHeader title={initial ? "Editar movimiento" : "Nuevo movimiento"} />
+      <div className="grid grid-cols-2 gap-3.5">
         <Field label="Cuenta">
-          <select value={cuenta} onChange={(e) => setCuenta(e.target.value)} className="rounded-lg px-3 py-2 text-sm" style={inputStyle}>
+          <select value={cuenta} onChange={(e) => setCuenta(e.target.value)} className="rounded-lg px-3 py-2.5 text-sm" style={inputStyle}>
             {cuentas.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
         </Field>
         <Field label="Tipo">
-          <select value={tipo} onChange={(e) => handleTipo(e.target.value)} className="rounded-lg px-3 py-2 text-sm" style={inputStyle}>
+          <select value={tipo} onChange={(e) => handleTipo(e.target.value)} className="rounded-lg px-3 py-2.5 text-sm" style={inputStyle}>
             {TIPOS.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </Field>
         <Field label="Monto">
-          <input type="number" min="0" step="1" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="0" className="rounded-lg px-3 py-2 text-sm" style={inputStyle} />
+          <input type="number" min="0" step="1" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="0" className="rounded-lg px-3 py-2.5 text-sm" style={{ ...inputStyle, fontFamily: FONT_MONO }} />
         </Field>
         <Field label="Movimiento">
           <div className="flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLOR.hairline}` }}>
-            <button onClick={() => setSigno("entrada")} className="flex-1 py-2 text-sm" style={{ background: signo === "entrada" ? COLOR.mintSoft : "transparent", color: signo === "entrada" ? COLOR.mint : COLOR.textMuted }}>Entrada</button>
-            <button onClick={() => setSigno("salida")} className="flex-1 py-2 text-sm" style={{ background: signo === "salida" ? COLOR.coralSoft : "transparent", color: signo === "salida" ? COLOR.coral : COLOR.textMuted }}>Salida</button>
+            <button onClick={() => setSigno("entrada")} className="raiz-press flex-1 py-2.5 text-sm" style={{ background: signo === "entrada" ? COLOR.mintSoft : "transparent", color: signo === "entrada" ? COLOR.mint : COLOR.textMuted, fontWeight: signo === "entrada" ? 600 : 400 }}>Entrada</button>
+            <button onClick={() => setSigno("salida")} className="raiz-press flex-1 py-2.5 text-sm" style={{ background: signo === "salida" ? COLOR.coralSoft : "transparent", color: signo === "salida" ? COLOR.coral : COLOR.textMuted, fontWeight: signo === "salida" ? 600 : 400 }}>Salida</button>
           </div>
         </Field>
         <Field label="Categoría">
-          <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="rounded-lg px-3 py-2 text-sm" style={inputStyle}>
+          <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="rounded-lg px-3 py-2.5 text-sm" style={inputStyle}>
             {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </Field>
         <Field label="Fecha">
-          <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="rounded-lg px-3 py-2 text-sm" style={inputStyle} />
+          <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="rounded-lg px-3 py-2.5 text-sm" style={inputStyle} />
         </Field>
         <Field label="Descripción">
-          <input type="text" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder="Ej. Mercado, salario…" className="rounded-lg px-3 py-2 text-sm" style={inputStyle} />
+          <input type="text" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder="Ej. Mercado, salario…" className="rounded-lg px-3 py-2.5 text-sm" style={inputStyle} />
         </Field>
         <Field label="Estado">
-          <select value={estado} onChange={(e) => setEstado(e.target.value)} className="rounded-lg px-3 py-2 text-sm" style={inputStyle}>
+          <select value={estado} onChange={(e) => setEstado(e.target.value)} className="rounded-lg px-3 py-2.5 text-sm" style={inputStyle}>
             <option>Completado</option>
             <option>Pendiente</option>
           </select>
@@ -811,57 +1078,83 @@ function MovForm({ cuentas, presupuestos = [], movimientos = [], initial, onCanc
       </div>
 
       {tipo === "Gasto" && presupuesto && (
-        <div style={{ fontSize: 11.5, color: gastadoConEste > presupuesto.limiteMensual ? COLOR.coral : COLOR.textMuted, marginTop: 10 }}>
+        <div className="flex items-center gap-1.5 mt-3.5 px-3 py-2 rounded-lg" style={{ fontSize: 11.5, color: gastadoConEste > presupuesto.limiteMensual ? COLOR.coral : COLOR.textMuted, background: gastadoConEste > presupuesto.limiteMensual ? COLOR.coralSoft : COLOR.surfaceAlt }}>
+          {gastadoConEste > presupuesto.limiteMensual ? <AlertTriangle size={12.5} className="shrink-0" /> : null}
           {gastadoConEste > presupuesto.limiteMensual ? "Este movimiento supera" : "Llevarías"} {fmtCOP(gastadoConEste)} de {fmtCOP(presupuesto.limiteMensual)} en {categoria} este mes.
         </div>
       )}
-      {error && <div style={{ fontSize: 12, color: COLOR.coral, marginTop: 10 }}>{error}</div>}
+      {error && <div className="flex items-center gap-1.5 mt-3.5" style={{ fontSize: 12, color: COLOR.coral }}><AlertTriangle size={12.5} />{error}</div>}
 
-      <div className="flex justify-end gap-2 mt-4">
-        <button onClick={onCancel} className="px-3.5 py-2 rounded-lg text-sm" style={{ color: COLOR.textMuted }}>Cancelar</button>
-        <button onClick={submit} className="px-3.5 py-2 rounded-lg text-sm font-medium" style={{ background: COLOR.mint, color: "#08130E" }}>
-          {initial ? "Guardar cambios" : "Guardar movimiento"}
-        </button>
+      <div className="flex justify-end gap-2 mt-5">
+        <GhostButton onClick={onCancel}>Cancelar</GhostButton>
+        <PrimaryButton onClick={submit}>{initial ? "Guardar cambios" : "Guardar movimiento"}</PrimaryButton>
       </div>
     </Card>
   );
 }
 
-// ---------- Cuentas ----------
+// ============================================================================
+// Cuentas
+// ============================================================================
 function Cuentas({ cuentas, movimientos, showForm, setShowForm, onAgregar, onEliminar }) {
+  // Antes: cada tarjeta llamaba saldoCuenta(...) y movimientos.filter(...).length
+  // por separado -> un recorrido completo de `movimientos` por cada cuenta, en
+  // cada render (incluido con solo abrir/cerrar el modal). Con muchas cuentas
+  // y movimientos eso se nota. Aquí se calcula todo en un único recorrido y
+  // se memoiza mientras `cuentas`/`movimientos` no cambien.
+  const statsPorCuenta = useMemo(() => {
+    const map = {};
+    cuentas.forEach((c) => { map[c.id] = { saldo: 0, numMovs: 0 }; });
+    movimientos.forEach((m) => {
+      const entry = map[m.cuenta];
+      if (!entry) return;
+      entry.saldo += m.signo === "entrada" ? m.monto : -m.monto;
+      entry.numMovs += 1;
+    });
+    return map;
+  }, [cuentas, movimientos]);
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex justify-end">
-        <button onClick={() => setShowForm((s) => !s)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm" style={{ background: "transparent", color: COLOR.textPrimary, border: `1px solid ${COLOR.hairline}` }}>
-          <Plus size={14} strokeWidth={1.75} /> Agregar cuenta
-        </button>
+        <PrimaryButton onClick={() => setShowForm(true)}>
+          <Plus size={14} strokeWidth={2} /> Agregar cuenta
+        </PrimaryButton>
       </div>
 
-      {showForm && <CuentaForm onCancel={() => setShowForm(false)} onGuardar={onAgregar} />}
+      {showForm && (
+        <Modal onClose={() => setShowForm(false)}>
+          <CuentaForm onCancel={() => setShowForm(false)} onGuardar={onAgregar} />
+        </Modal>
+      )}
 
       {cuentas.length === 0 ? (
-        <Card><div style={{ color: COLOR.textMuted, fontSize: 14 }}>No tienes cuentas registradas todavía.</div></Card>
+        <Card className="text-center py-10">
+          <div style={{ color: COLOR.textMuted, fontSize: 14 }}>No tienes cuentas registradas todavía.</div>
+        </Card>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {cuentas.map((c) => {
             const meta = CUENTA_TIPOS.find((t) => t.value === c.tipo);
             const Icon = meta?.icon || Wallet;
-            const saldo = saldoCuenta(c.id, movimientos);
+            const { saldo, numMovs } = statsPorCuenta[c.id] || { saldo: 0, numMovs: 0 };
             const esDeuda = c.tipo === "deuda";
-            const numMovs = movimientos.filter((m) => m.cuenta === c.id).length;
+            const semColor = esDeuda ? COLOR.coral : c.tipo === "inversion" ? COLOR.gold : COLOR.peri;
+            const semSoft = esDeuda ? COLOR.coralSoft : c.tipo === "inversion" ? COLOR.goldSoft : COLOR.periSoft;
             return (
-              <Card key={c.id} className="!p-4 relative group">
-                <div className="flex items-center gap-2" style={{ color: COLOR.textMuted, fontSize: 11 }}>
-                  <Icon size={13} /> {meta?.label}
+              <Card key={c.id} hoverable className="!p-5 relative group">
+                <div className="flex items-center justify-between">
+                  <IconBadge icon={Icon} color={semColor} soft={semSoft} />
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <ConfirmIconButton onConfirm={() => onEliminar(c.id)} icon={Trash2} title="Eliminar cuenta (y sus movimientos y metas)" />
+                  </div>
                 </div>
-                <div style={{ fontSize: 14.5, marginTop: 6 }}>{c.nombre}</div>
-                <div style={{ fontFamily: FONT_MONO, fontSize: 17, marginTop: 4, color: esDeuda ? COLOR.coral : COLOR.textPrimary }}>
+                <div style={{ color: COLOR.textMuted, fontSize: 11, marginTop: 14, textTransform: "uppercase", letterSpacing: 0.4 }}>{meta?.label}</div>
+                <div style={{ fontSize: 15, marginTop: 3, fontWeight: 500 }}>{c.nombre}</div>
+                <div className="tabular-nums" style={{ fontFamily: FONT_MONO, fontSize: 19, marginTop: 8, color: esDeuda ? COLOR.coral : COLOR.textPrimary }}>
                   {esDeuda ? "−" : ""}{fmtCOP(Math.abs(saldo))}
                 </div>
-                {numMovs > 0 && <div style={{ fontSize: 10.5, color: COLOR.textMuted, marginTop: 2 }}>{numMovs} movimiento{numMovs > 1 ? "s" : ""}</div>}
-                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <ConfirmIconButton onConfirm={() => onEliminar(c.id)} icon={Trash2} title="Eliminar cuenta (y sus movimientos y metas)" />
-                </div>
+                {numMovs > 0 && <div style={{ fontSize: 11, color: COLOR.textMuted, marginTop: 4 }}>{numMovs} movimiento{numMovs > 1 ? "s" : ""}</div>}
               </Card>
             );
           })}
@@ -884,30 +1177,33 @@ function CuentaForm({ onCancel, onGuardar }) {
   }
 
   return (
-    <Card>
-      <div className="grid grid-cols-2 gap-3">
+    <Card variant="hero" className="!p-6">
+      <SectionHeader title="Nueva cuenta" />
+      <div className="grid grid-cols-2 gap-3.5">
         <Field label="Nombre">
-          <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Bancolombia, Nu, Efectivo…" className="rounded-lg px-3 py-2 text-sm" style={inputStyle} />
+          <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Bancolombia, Nu, Efectivo…" className="rounded-lg px-3 py-2.5 text-sm" style={inputStyle} />
         </Field>
         <Field label="Tipo de cuenta">
-          <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="rounded-lg px-3 py-2 text-sm" style={inputStyle}>
+          <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="rounded-lg px-3 py-2.5 text-sm" style={inputStyle}>
             {CUENTA_TIPOS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </Field>
         <Field label={tipo === "deuda" ? "Monto que debes hoy (opcional)" : "Saldo inicial (opcional)"}>
-          <input type="number" min="0" value={saldoInicial} onChange={(e) => setSaldoInicial(e.target.value)} placeholder="0" className="rounded-lg px-3 py-2 text-sm" style={inputStyle} />
+          <input type="number" min="0" value={saldoInicial} onChange={(e) => setSaldoInicial(e.target.value)} placeholder="0" className="rounded-lg px-3 py-2.5 text-sm" style={{ ...inputStyle, fontFamily: FONT_MONO }} />
         </Field>
       </div>
-      {error && <div style={{ fontSize: 12, color: COLOR.coral, marginTop: 10 }}>{error}</div>}
-      <div className="flex justify-end gap-2 mt-4">
-        <button onClick={onCancel} className="px-3.5 py-2 rounded-lg text-sm" style={{ color: COLOR.textMuted }}>Cancelar</button>
-        <button onClick={submit} className="px-3.5 py-2 rounded-lg text-sm font-medium" style={{ background: COLOR.mint, color: "#08130E" }}>Guardar cuenta</button>
+      {error && <div className="flex items-center gap-1.5 mt-3.5" style={{ fontSize: 12, color: COLOR.coral }}><AlertTriangle size={12.5} />{error}</div>}
+      <div className="flex justify-end gap-2 mt-5">
+        <GhostButton onClick={onCancel}>Cancelar</GhostButton>
+        <PrimaryButton onClick={submit}>Guardar cuenta</PrimaryButton>
       </div>
     </Card>
   );
 }
 
-// ---------- Metas (Presupuestos + Metas de ahorro/inversión) ----------
+// ============================================================================
+// Metas (Presupuestos + Metas de ahorro/inversión)
+// ============================================================================
 function PresupuestosSection({ presupuestos, movimientos, onAgregar, onEliminar }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -936,55 +1232,59 @@ function PresupuestosSection({ presupuestos, movimientos, onAgregar, onEliminar 
 
   return (
     <Card>
-      <div className="flex items-center justify-between mb-3">
-        <div style={{ fontSize: 14 }}>Presupuestos mensuales</div>
-        <button onClick={() => setShowForm((s) => !s)} disabled={disponibles.length === 0}
-          className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg" style={{ border: `1px solid ${COLOR.hairline}`, color: disponibles.length ? COLOR.textPrimary : COLOR.textMuted }}>
-          <Plus size={13} strokeWidth={1.75} /> Agregar
-        </button>
-      </div>
+      <SectionHeader
+        title="Presupuestos mensuales"
+        action={
+          <OutlineButton onClick={() => setShowForm((s) => !s)} disabled={disponibles.length === 0} className="!gap-1">
+            <Plus size={13} strokeWidth={1.9} /> Agregar
+          </OutlineButton>
+        }
+      />
 
       {showForm && (
-        <div className="flex gap-2 mb-4 flex-wrap">
-          <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="rounded-lg px-3 py-2 text-sm" style={inputStyle}>
+        <div className="flex gap-2 mb-4 flex-wrap animate-slide-up">
+          <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="rounded-lg px-3 py-2.5 text-sm" style={inputStyle}>
             {disponibles.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          <input type="number" min="0" value={limite} onChange={(e) => setLimite(e.target.value)} placeholder="Límite mensual" className="rounded-lg px-3 py-2 text-sm flex-1" style={{ ...inputStyle, minWidth: 120 }} />
-          <button onClick={submit} className="px-3 py-2 rounded-lg text-sm font-medium" style={{ background: COLOR.mint, color: "#08130E" }}>Guardar</button>
+          <input type="number" min="0" value={limite} onChange={(e) => setLimite(e.target.value)} placeholder="Límite mensual" className="rounded-lg px-3 py-2.5 text-sm flex-1" style={{ ...inputStyle, minWidth: 120, fontFamily: FONT_MONO }} />
+          <PrimaryButton onClick={submit} className="!px-3.5">Guardar</PrimaryButton>
         </div>
       )}
 
       {presupuestos.length === 0 ? (
         <div style={{ color: COLOR.textMuted, fontSize: 13 }}>Sin presupuestos definidos todavía.</div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           {presupuestos.map((p) => {
             const gastado = gastadoMesCategoria(p.categoria, movimientos);
             const pct = p.limiteMensual ? (gastado / p.limiteMensual) * 100 : 0;
             const excedido = gastado > p.limiteMensual;
             const editing = editingId === p.id;
+            const Icon = iconoCategoria(p.categoria);
             return (
               <div key={p.id} className="group">
-                <div className="flex items-center justify-between text-xs mb-1 gap-2">
-                  <span>{p.categoria}</span>
+                <div className="flex items-center justify-between text-xs mb-1.5 gap-2">
+                  <span className="flex items-center gap-1.5" style={{ color: COLOR.textPrimary }}>
+                    <Icon size={13} style={{ color: COLOR.textMuted }} /> {p.categoria}
+                  </span>
                   {editing ? (
                     <span className="flex items-center gap-1.5">
                       <input autoFocus type="number" min="0" value={editValue} onChange={(e) => setEditValue(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && guardarEdicion(p)}
-                        className="rounded-lg px-2 py-1 text-xs w-24" style={inputStyle} />
-                      <button onClick={() => guardarEdicion(p)} style={{ color: COLOR.mint }}><Check size={14} /></button>
-                      <button onClick={() => setEditingId(null)} style={{ color: COLOR.textMuted }}><X size={14} /></button>
+                        className="rounded-lg px-2 py-1 text-xs w-24" style={{ ...inputStyle, fontFamily: FONT_MONO }} />
+                      <button onClick={() => guardarEdicion(p)} className="raiz-press" style={{ color: COLOR.mint }}><Check size={14} /></button>
+                      <button onClick={() => setEditingId(null)} className="raiz-press" style={{ color: COLOR.textMuted }}><X size={14} /></button>
                     </span>
                   ) : (
                     <span className="flex items-center gap-2">
-                      <span style={{ fontFamily: FONT_MONO, color: excedido ? COLOR.coral : COLOR.textMuted }}>{fmtCOP(gastado)} / {fmtCOP(p.limiteMensual)}</span>
-                      <button onClick={() => abrirEdicion(p)} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: COLOR.textMuted }}><Pencil size={12} /></button>
+                      <span className="tabular-nums" style={{ fontFamily: FONT_MONO, color: excedido ? COLOR.coral : COLOR.textMuted }}>{fmtCOP(gastado)} / {fmtCOP(p.limiteMensual)}</span>
+                      <button onClick={() => abrirEdicion(p)} className="raiz-press opacity-0 group-hover:opacity-100" style={{ color: COLOR.textMuted }}><Pencil size={12} /></button>
                       <ConfirmIconButton onConfirm={() => onEliminar(p.id)} icon={Trash2} size={13} className="opacity-0 group-hover:opacity-100" />
                     </span>
                   )}
                 </div>
                 <ProgressBar pct={pct} color={excedido ? COLOR.coral : COLOR.mint} />
-                {excedido && <div style={{ fontSize: 11, color: COLOR.coral, marginTop: 4 }}>Superado por {fmtCOP(gastado - p.limiteMensual)}</div>}
+                {excedido && <div className="flex items-center gap-1.5 mt-1.5" style={{ fontSize: 11, color: COLOR.coral }}><AlertTriangle size={11} />Superado por {fmtCOP(gastado - p.limiteMensual)}</div>}
               </div>
             );
           })}
@@ -1009,25 +1309,26 @@ function MetasSection({ cuentas, movimientos, metas, onAgregar, onEliminar }) {
 
   return (
     <Card>
-      <div className="flex items-center justify-between mb-3">
-        <div style={{ fontSize: 14 }}>Metas de ahorro e inversión</div>
-        <button onClick={() => setShowForm((s) => !s)} disabled={cuentas.length === 0}
-          className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg" style={{ border: `1px solid ${COLOR.hairline}`, color: cuentas.length ? COLOR.textPrimary : COLOR.textMuted }}>
-          <Plus size={13} strokeWidth={1.75} /> Nueva meta
-        </button>
-      </div>
+      <SectionHeader
+        title="Metas de ahorro e inversión"
+        action={
+          <OutlineButton onClick={() => setShowForm((s) => !s)} disabled={cuentas.length === 0} className="!gap-1">
+            <Plus size={13} strokeWidth={1.9} /> Nueva meta
+          </OutlineButton>
+        }
+      />
 
       {cuentas.length === 0 && <div style={{ color: COLOR.textMuted, fontSize: 13 }}>Crea primero una cuenta para vincular una meta.</div>}
 
       {showForm && (
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Fondo de emergencia" className="rounded-lg px-3 py-2 text-sm col-span-2" style={inputStyle} />
-          <input type="number" min="0" value={montoObjetivo} onChange={(e) => setMontoObjetivo(e.target.value)} placeholder="Monto objetivo" className="rounded-lg px-3 py-2 text-sm" style={inputStyle} />
-          <input type="date" value={fechaObjetivo} onChange={(e) => setFechaObjetivo(e.target.value)} className="rounded-lg px-3 py-2 text-sm" style={inputStyle} />
-          <select value={cuentaId} onChange={(e) => setCuentaId(e.target.value)} className="rounded-lg px-3 py-2 text-sm col-span-2" style={inputStyle}>
+        <div className="grid grid-cols-2 gap-2 mb-4 animate-slide-up">
+          <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Fondo de emergencia" className="rounded-lg px-3 py-2.5 text-sm col-span-2" style={inputStyle} />
+          <input type="number" min="0" value={montoObjetivo} onChange={(e) => setMontoObjetivo(e.target.value)} placeholder="Monto objetivo" className="rounded-lg px-3 py-2.5 text-sm" style={{ ...inputStyle, fontFamily: FONT_MONO }} />
+          <input type="date" value={fechaObjetivo} onChange={(e) => setFechaObjetivo(e.target.value)} className="rounded-lg px-3 py-2.5 text-sm" style={inputStyle} />
+          <select value={cuentaId} onChange={(e) => setCuentaId(e.target.value)} className="rounded-lg px-3 py-2.5 text-sm col-span-2" style={inputStyle}>
             {cuentas.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
-          <button onClick={submit} className="col-span-2 px-3 py-2 rounded-lg text-sm font-medium" style={{ background: COLOR.mint, color: "#08130E" }}>Guardar meta</button>
+          <PrimaryButton onClick={submit} className="col-span-2">Guardar meta</PrimaryButton>
         </div>
       )}
 
@@ -1043,16 +1344,17 @@ function MetasSection({ cuentas, movimientos, metas, onAgregar, onEliminar }) {
             const diasRestantes = meta.fechaObjetivo ? Math.ceil((new Date(meta.fechaObjetivo) - new Date()) / 86400000) : null;
             return (
               <div key={meta.id} className="group">
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="flex items-center gap-1.5">
+                <div className="flex items-center justify-between text-xs mb-1.5">
+                  <span className="flex items-center gap-1.5" style={{ color: COLOR.textPrimary }}>
+                    <Target size={13} style={{ color: cumplida ? COLOR.mint : COLOR.textMuted }} />
                     {meta.nombre}{cuenta ? ` · ${cuenta.nombre}` : ""}
                     {cumplida && <Check size={12} style={{ color: COLOR.mint }} />}
                   </span>
                   <ConfirmIconButton onConfirm={() => onEliminar(meta.id)} icon={Trash2} size={13} className="opacity-0 group-hover:opacity-100" />
                 </div>
                 <ProgressBar pct={pct} color={cumplida ? COLOR.mint : COLOR.peri} />
-                <div className="flex items-center justify-between mt-1" style={{ fontSize: 11, color: COLOR.textMuted }}>
-                  <span style={{ fontFamily: FONT_MONO }}>{fmtCOP(saldo)} / {fmtCOP(meta.montoObjetivo)} · {Math.min(100, pct).toFixed(0)}%</span>
+                <div className="flex items-center justify-between mt-1.5" style={{ fontSize: 11, color: COLOR.textMuted }}>
+                  <span className="tabular-nums" style={{ fontFamily: FONT_MONO }}>{fmtCOP(saldo)} / {fmtCOP(meta.montoObjetivo)} · {Math.min(100, pct).toFixed(0)}%</span>
                   {diasRestantes !== null && <span style={{ color: diasRestantes < 0 && !cumplida ? COLOR.coral : COLOR.textMuted }}>{cumplida ? "meta cumplida" : diasRestantes >= 0 ? `${diasRestantes} días restantes` : "vencida"}</span>}
                 </div>
               </div>
@@ -1066,14 +1368,16 @@ function MetasSection({ cuentas, movimientos, metas, onAgregar, onEliminar }) {
 
 function Metas({ cuentas, movimientos, presupuestos, metas, onAgregarPresupuesto, onEliminarPresupuesto, onAgregarMeta, onEliminarMeta }) {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
       <PresupuestosSection presupuestos={presupuestos} movimientos={movimientos} onAgregar={onAgregarPresupuesto} onEliminar={onEliminarPresupuesto} />
       <MetasSection cuentas={cuentas} movimientos={movimientos} metas={metas} onAgregar={onAgregarMeta} onEliminar={onEliminarMeta} />
     </div>
   );
 }
 
-// ---------- Reportes ----------
+// ============================================================================
+// Reportes
+// ============================================================================
 function Reportes({ cuentas, movimientos, serie, catBreak, periodo, setPeriodo }) {
   const [rangoMeses, setRangoMeses] = useState(6);
   const serieExtendida = useMemo(() => serieMensual(cuentas, movimientos, rangoMeses), [cuentas, movimientos, rangoMeses]);
@@ -1081,67 +1385,68 @@ function Reportes({ cuentas, movimientos, serie, catBreak, periodo, setPeriodo }
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex gap-2 overflow-x-auto">
+      <div className="flex gap-1.5 overflow-x-auto raiz-scrollbar-x p-1 rounded-full w-fit" style={{ background: COLOR.surface, border: `1px solid ${COLOR.hairline}` }}>
         {[["mes", "Mes"], ["trimestre", "Trimestre"], ["semestre", "Semestre"], ["año", "Año"]].map(([v, l]) => (
-          <button key={v} onClick={() => setPeriodo(v)} className="px-3 py-1.5 rounded-lg text-xs"
-            style={{ background: periodo === v ? COLOR.periSoft : "transparent", color: periodo === v ? COLOR.peri : COLOR.textMuted, border: `1px solid ${periodo === v ? "rgba(140,155,199,0.35)" : COLOR.hairline}` }}>
+          <button key={v} onClick={() => setPeriodo(v)} className="raiz-press px-3.5 py-1.5 rounded-full text-xs whitespace-nowrap"
+            style={{ background: periodo === v ? COLOR.peri : "transparent", color: periodo === v ? COLOR.onAccent : COLOR.textMuted, fontWeight: periodo === v ? 600 : 500 }}>
             {l}
           </button>
         ))}
       </div>
 
-      <Card>
-        <div className="flex items-center justify-between mb-2">
-          <div style={{ fontSize: 13, color: COLOR.textMuted }}>Evolución del patrimonio</div>
-          <div className="flex gap-1">
-            {[6, 12].map((n) => (
-              <button key={n} onClick={() => setRangoMeses(n)} className="px-2 py-1 rounded-md text-[11px]"
-                style={{ background: rangoMeses === n ? COLOR.periSoft : "transparent", color: rangoMeses === n ? COLOR.peri : COLOR.textMuted }}>
-                {n}m
-              </button>
-            ))}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <div style={{ fontSize: 14.5, fontWeight: 600, color: COLOR.textPrimary }}>Evolución del patrimonio</div>
+            <div className="flex gap-1 p-1 rounded-lg" style={{ background: COLOR.surfaceAlt }}>
+              {[6, 12].map((n) => (
+                <button key={n} onClick={() => setRangoMeses(n)} className="raiz-press px-2.5 py-1 rounded-md text-[11px] font-medium"
+                  style={{ background: rangoMeses === n ? COLOR.peri : "transparent", color: rangoMeses === n ? COLOR.onAccent : COLOR.textMuted }}>
+                  {n}m
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        <div style={{ height: 200 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={serieExtendida}>
-              <CartesianGrid vertical={false} stroke={COLOR.hairline} strokeDasharray="3 4" />
-              <XAxis dataKey="mes" tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis hide />
-              <defs>
-                <linearGradient id="patrGrad2" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={COLOR.peri} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={COLOR.peri} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <Area type="monotone" dataKey="patrimonio" stroke={COLOR.peri} strokeWidth={2} fill="url(#patrGrad2)" />
-              <Tooltip contentStyle={{ background: COLOR.surfaceAlt, border: `1px solid ${COLOR.hairline}`, borderRadius: 8, fontSize: 12 }} formatter={(v) => fmtCOP(v)} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
+          <div style={{ height: 230 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={serieExtendida}>
+                <CartesianGrid vertical={false} stroke={COLOR.hairline} strokeDasharray="3 5" />
+                <XAxis dataKey="mes" tick={{ fill: COLOR.textMuted, fontSize: 11.5 }} axisLine={false} tickLine={false} />
+                <YAxis hide />
+                <defs>
+                  <linearGradient id="patrGrad2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={COLOR.peri} stopOpacity={0.32} />
+                    <stop offset="100%" stopColor={COLOR.peri} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <Area type="monotone" dataKey="patrimonio" name="Patrimonio" stroke={COLOR.peri} strokeWidth={2.25} fill="url(#patrGrad2)" activeDot={{ r: 4, strokeWidth: 0 }} />
+                <Tooltip content={<ChartTooltip />} cursor={{ stroke: COLOR.hairlineStrong, strokeWidth: 1 }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
 
-      <Card>
-        <div className="flex items-center justify-between" style={{ fontSize: 13, color: COLOR.textMuted, marginBottom: 8 }}>
-          <span>Gastos por categoría</span>
-          <span style={{ fontFamily: FONT_MONO, color: COLOR.textPrimary }}>{fmtCOP(totalGastos)}</span>
-        </div>
-        {catBreak.length === 0 ? (
-          <div style={{ color: COLOR.textMuted, fontSize: 13 }}>Sin gastos registrados en este período.</div>
-        ) : <DonutBreakdown data={catBreak} />}
-      </Card>
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <div style={{ fontSize: 14.5, fontWeight: 600, color: COLOR.textPrimary }}>Gastos por categoría</div>
+            <span className="tabular-nums" style={{ fontFamily: FONT_MONO, color: COLOR.textPrimary, fontSize: 13 }}>{fmtCOP(totalGastos)}</span>
+          </div>
+          {catBreak.length === 0 ? (
+            <div style={{ color: COLOR.textMuted, fontSize: 13 }}>Sin gastos registrados en este período.</div>
+          ) : <DonutBreakdown data={catBreak} compact />}
+        </Card>
+      </div>
 
-      <button
+      <OutlineButton
         onClick={() => {
           const header = ["Mes", "Patrimonio", "Ingresos", "Gastos"];
           const rows = serieExtendida.map((s) => [s.mes, s.patrimonio, s.ingresos, s.gastos]);
           descargarCSV(`raiz-reporte-${todayStr()}.csv`, [header, ...rows]);
         }}
-        className="flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-lg self-start"
-        style={{ border: `1px solid ${COLOR.hairline}`, color: COLOR.textPrimary }}
+        className="!px-3.5 self-start"
       >
-        <Download size={12} strokeWidth={1.75} /> Exportar serie mensual (CSV)
-      </button>
+        <Download size={12} strokeWidth={1.9} /> Exportar serie mensual (CSV)
+      </OutlineButton>
     </div>
   );
 }
@@ -1161,7 +1466,8 @@ export default function App() {
   if (session === undefined) {
     return (
       <div style={{ background: COLOR.bg, minHeight: 480 }} className="flex items-center justify-center">
-        <span style={{ color: COLOR.textMuted, fontFamily: FONT_BODY }}>Cargando…</span>
+        <GlobalStyles />
+        <span style={{ color: COLOR.textMuted, fontFamily: FONT_BODY, fontSize: 13.5 }} className="animate-fade-in">Cargando…</span>
       </div>
     );
   }
